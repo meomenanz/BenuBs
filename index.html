@@ -235,6 +235,13 @@
             <button class="btn-red" style="background:#27ae60; box-shadow:0 4px 0 #1e7e34;" onclick="addCoinsToSelf()">+ Добавить себе</button>
             <button class="btn-red" style="background:#e74c3c; box-shadow:0 4px 0 #9e2a21;" onclick="removeCoinsFromSelf()">- Забрать у себя</button>
         </div>
+
+        <div style="background:#1a1a1a; padding:16px; border-radius:12px; margin-bottom:16px; border:2px solid #2ecc71;">
+            <h2 style="color:#ffc107; margin-top:0;">🏆 КУБКИ ЗА ПОБЕДУ (Только для тебя)</h2>
+            <input type="number" id="admin-trophy-input" placeholder="Кол-во (напр. 100)" style="padding:10px; font-size:1em; border-radius:8px; border:2px solid #2ecc71; background:#222; color:#fff; width:180px; margin-right:10px;">
+            <button class="btn-red" style="background:#2ecc71; box-shadow:0 4px 0 #27ae60;" onclick="setCustomTrophies()">Применить</button>
+            <p id="admin-trophy-status" style="color:#aaa; font-size:0.9em; margin-top:10px;">Сейчас: Стандартно</p>
+        </div>
         
         <div style="background:#1a1a1a; padding:16px; border-radius:12px; margin-bottom:16px; border:2px solid #9b59b6;">
             <h2 style="color:#ffc107; margin-top:0;">👊 МОИ БОЙЦЫ</h2>
@@ -282,7 +289,7 @@ const HEROES = {
     '8bit':{ hp:1500, dmg:5,   reload:1500, img:'8bit.png',  unlock:1250 },
     mort:  { hp:350,  dmg:2,   reload:1,    img:'mort.png' },
     drako: { hp:700,  dmg:15,  reload:2000, img:'drako.png', hasUlt:true, ultForm:'drakou.png', ultDmg:35 },
-    kit:   { hp:700,  dmg:35,  reload:2500, img:'kit.png' } // только из кейса за 5000
+    kit:   { hp:700,  dmg:35,  reload:2500, img:'kit.png' }
 };
 const SHIELD_ACTIVE = 3000;
 const SHIELD_CD     = 3000;
@@ -299,6 +306,7 @@ let stats = {
 
 let nickTapCount = 0;
 let nickTapTimer = null;
+let adminCustomTrophyWin = null; // Кастомные кубки за победу
 
 let B = {
     active:false, pvp:false, myRole:'', matchId:'',
@@ -657,6 +665,12 @@ function showModal(type,win){
         if(win){ stats.winStreak++; } else { stats.winStreak=0; }
 
         let base = win ? (stats.totalTrophies<30?15:stats.totalTrophies<70?12:8) : -20;
+        
+        // Перехватываем кубки за победу, если настроено в админке
+        if(win && adminCustomTrophyWin !== null) {
+            base = adminCustomTrophyWin;
+        }
+
         let streakBonus = 0;
         if(win && stats.winStreak>=4) streakBonus=10;
         else if(win && stats.winStreak>=2) streakBonus=5;
@@ -755,8 +769,8 @@ async function startSearch(){
         const mid=sorted[0]+'_'+sorted[1]+'_'+Date.now();
         const h1=stats.currentHero, h2=opp.hero;
         db.ref('matches/'+mid).set({
-            player1:stats.nick, hero1:h1, hp1:HEROES[h1].hp, shield1:false,
-            player2:opp.nick,   hero2:h2, hp2:HEROES[h2].hp, shield2:false,
+            player1:stats.nick, hero1:h1, hp1:HEROES[h1].hp, shield1:false, pos1:0,
+            player2:opp.nick,   hero2:h2, hp2:HEROES[h2].hp, shield2:false, pos2:0,
             ready:true, ts:Date.now()
         }).then(()=>{
             db.ref('queue/'+stats.nick).remove();
@@ -797,8 +811,10 @@ function enterPvP(matchId,myRole,enemyNick,enemyHeroId){
     document.getElementById('search-screen').style.display='none';
     document.getElementById('battle-screen').style.display='block';
     
-    // Сброс перемещения Кита
+    // Сброс позиций Кита при старте
     document.getElementById('p-battle-img').style.transform = 'translateY(0)';
+    document.getElementById('e-battle-img').style.transform = 'translateY(0)';
+    
     if(stats.currentHero === 'kit') document.getElementById('kit-controls').style.display = 'flex';
     else document.getElementById('kit-controls').style.display = 'none';
 
@@ -816,6 +832,12 @@ function enterPvP(matchId,myRole,enemyNick,enemyHeroId){
         const enShKey    = myRole==='player1'?'shield2':'shield1';
         const enemyUltHitsKey = myRole==='player1'?'ultHits2':'ultHits1';
         const enemyUltActiveKey = myRole==='player1'?'ultActive2':'ultActive1';
+        
+        // Синхронизация позиции врага
+        const enemyPosKey = myRole==='player1'?'pos2':'pos1';
+        const enemyPos = state[enemyPosKey] || 0;
+        
+        document.getElementById('e-battle-img').style.transform = 'translateY(' + enemyPos + 'px)';
         
         const myHP    = state[myHPkey]??B.myMaxHP;
         const enemyHP = state[enemyHPkey]??B.enemyMaxHP;
@@ -837,13 +859,21 @@ function enterPvP(matchId,myRole,enemyNick,enemyHeroId){
     });
 }
 
-// Управление для Кита
+// Управление для Кита с синхронизацией по сети
 function moveKit(dir) {
     if(!B.active) return;
     const img = document.getElementById('p-battle-img');
-    if(dir === 'up') img.style.transform = 'translateY(-200px)';
-    else if(dir === 'down') img.style.transform = 'translateY(150px)';
-    else img.style.transform = 'translateY(0)';
+    let offset = 0;
+    
+    if(dir === 'up') offset = -200;
+    else if(dir === 'down') offset = 150;
+    
+    img.style.transform = 'translateY(' + offset + 'px)';
+    
+    if(B.pvp) {
+        const posKey = B.myRole === 'player1' ? 'pos1' : 'pos2';
+        B.matchDbRef.update({ [posKey]: offset });
+    }
 }
 
 document.getElementById('atk-btn').onclick=function(){
@@ -861,7 +891,6 @@ document.getElementById('atk-btn').onclick=function(){
         actualDmg = myHero.ultDmg;
     }
 
-    // Механика Ворона (яд)
     if(myHero.hasPoison) {
         let ticks = 0;
         let pTimer = setInterval(() => {
@@ -993,6 +1022,7 @@ function launchBotBattle(){
     document.getElementById('battle-screen').style.display='block';
 
     document.getElementById('p-battle-img').style.transform = 'translateY(0)';
+    document.getElementById('e-battle-img').style.transform = 'translateY(0)';
     if(stats.currentHero === 'kit') document.getElementById('kit-controls').style.display = 'flex';
     else document.getElementById('kit-controls').style.display = 'none';
 
@@ -1030,7 +1060,6 @@ function launchBotBattle(){
                     botDmg = enemyHero.ultDmg;
                 }
                 
-                // Если бот играет за Ворона
                 if(enemyHero.hasPoison){
                     let ticks = 0;
                     let pTimer = setInterval(() => {
@@ -1106,6 +1135,19 @@ function openAdminPanel(){
 
 function closeAdminPanel(){
     document.getElementById('admin-panel').style.display='none';
+}
+
+function setCustomTrophies() {
+    const val = parseInt(document.getElementById('admin-trophy-input').value);
+    if (isNaN(val)) {
+        adminCustomTrophyWin = null;
+        document.getElementById('admin-trophy-status').innerText = 'Сейчас: Стандартно';
+        alert('Установлено стандартное получение кубков!');
+    } else {
+        adminCustomTrophyWin = val;
+        document.getElementById('admin-trophy-status').innerText = 'Сейчас: +' + val + ' за победу';
+        alert('✅ Теперь ТЫ будешь получать +' + val + ' кубков за каждую победу!');
+    }
 }
 
 async function loadAllPlayers(){
