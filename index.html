@@ -37,35 +37,177 @@
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
         #search-title { color:#ffc107; font-size:clamp(1.4em,6vw,2em); animation:pulse 1s infinite; text-align:center; }
 
-        /* ── БОЙ ── */
-        #battle-screen { display:none; width:100vw; height:100dvh; background:linear-gradient(180deg,#2c2c2c,#3a3a3a); position:relative; z-index:50; overflow:hidden; }
-        #battle-arena { position:absolute; top:0; left:0; right:0; bottom:150px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 16px 20px; }
-        .fighter { display:flex; flex-direction:column; align-items:center; width:45%; position:relative; }
-        #fighter-enemy { align-items:flex-end; }
-        .player-label { display:none; background:#27ae60; color:#fff; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:7px; border:2px solid #fff; margin-bottom:4px; white-space:nowrap; }
-        .player-label.show { display:block; }
-        .shield-indicator { font-size:1.8em; margin-bottom:2px; opacity:0; transition:opacity 0.2s; }
-        .shield-indicator.show { opacity:1; }
-        .hp-container { width:100%; margin-bottom:8px; }
-        .hp-bar { width:100%; height:20px; background:#444; border:2px solid #fff; border-radius:10px; overflow:hidden; position:relative; }
-        .hp-fill { height:100%; background:#2ecc71; transition:width 0.15s; }
-        .hp-text { position:absolute; width:100%; top:0; left:0; font-size:12px; color:#fff; line-height:20px; text-shadow:1px 1px #000; font-weight:bold; text-align:center; }
-        .fighter-img { width:min(150px,38vw); height:auto; display:block; transition:transform 0.3s; }
-        #e-battle-img { transform:scaleX(-1); }
+        /* ── БОЙ С CANVAS ── */
+        #battle-screen { 
+            display:none; 
+            width:100vw; 
+            height:100dvh; 
+            background:linear-gradient(180deg,#1a4d2e,#2d5a3d); 
+            position:relative; 
+            z-index:50; 
+            overflow:hidden; 
+        }
         
-        #battle-controls { position:absolute; bottom:0; left:0; right:0; height:140px; display:flex; align-items:center; justify-content:center; gap:clamp(12px,4vw,30px); padding:10px 16px; background:rgba(0,0,0,0.45); }
-        .battle-btn { flex:1; max-width:180px; height:90px; font-size:clamp(1em,4.5vw,1.4em); border-radius:15px; border:4px solid #fff; color:white; cursor:pointer; text-transform:uppercase; font-weight:bold; font-family:'Arial Black',sans-serif; position:relative; }
-        #atk-btn { background:#e67e22; box-shadow:0 6px 0 #a35a1a; }
-        #def-btn { background:#3498db; box-shadow:0 6px 0 #21618c; }
-        .cd-overlay { position:absolute; inset:0; border-radius:11px; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; font-size:1.6em; font-weight:900; color:#fff; pointer-events:none; opacity:0; transition:opacity 0.15s; }
-        .cd-overlay.show { opacity:1; }
-        #def-btn.shield-active { background:#1a5276; border-color:#85c1e9; }
-        #def-btn.shield-cd { background:#555; pointer-events:none; }
-        #atk-btn.on-cd { pointer-events:none; }
+        #battle-canvas {
+            position:absolute;
+            top:0;
+            left:0;
+            width:100%;
+            height:100%;
+            touch-action:none;
+        }
 
-        /* Кнопки перемещения для Кита */
-        #kit-controls { display:none; position:absolute; left:16px; top:40%; transform:translateY(-50%); flex-direction:column; gap:10px; z-index:100; }
-        .kit-btn { width:60px; height:60px; font-size:1.8em; background:#f1c40f; border:3px solid #fff; border-radius:12px; cursor:pointer; box-shadow:0 4px 0 #bf9205; display:flex; align-items:center; justify-content:center; }
+        /* HP бары сверху */
+        .hp-hud {
+            position:absolute;
+            top:15px;
+            background:rgba(0,0,0,0.85);
+            padding:10px 14px;
+            border-radius:12px;
+            border:3px solid #fff;
+            z-index:60;
+            min-width:160px;
+        }
+        #my-hp-hud { left:15px; }
+        #enemy-hp-hud { right:15px; }
+        
+        .hp-name {
+            font-size:13px;
+            color:#ffc107;
+            margin-bottom:6px;
+            text-align:center;
+            font-weight:bold;
+        }
+        .hp-bar-top {
+            width:100%;
+            height:22px;
+            background:#333;
+            border:3px solid #fff;
+            border-radius:10px;
+            overflow:hidden;
+            position:relative;
+        }
+        .hp-fill-top {
+            height:100%;
+            background:linear-gradient(90deg, #2ecc71, #27ae60);
+            transition:width 0.3s;
+        }
+        .hp-text-top {
+            position:absolute;
+            width:100%;
+            top:0;
+            left:0;
+            font-size:13px;
+            color:#fff;
+            line-height:22px;
+            text-align:center;
+            font-weight:bold;
+            text-shadow:1px 1px 3px #000;
+        }
+
+        /* ДЖОЙСТИК */
+        #joystick-zone {
+            position:absolute;
+            bottom:25px;
+            left:25px;
+            width:160px;
+            height:160px;
+            z-index:70;
+        }
+        #joystick-base {
+            width:100%;
+            height:100%;
+            border-radius:50%;
+            background:rgba(0,0,0,0.45);
+            border:6px solid rgba(255,255,255,0.35);
+            position:relative;
+        }
+        #joystick-stick {
+            width:70px;
+            height:70px;
+            border-radius:50%;
+            background:linear-gradient(145deg, #ffc107, #ff9800);
+            border:6px solid #fff;
+            position:absolute;
+            top:50%;
+            left:50%;
+            transform:translate(-50%, -50%);
+            box-shadow:0 5px 10px rgba(0,0,0,0.6);
+            transition:all 0.08s ease-out;
+        }
+
+        /* КНОПКИ БОЯ */
+        #attack-btn {
+            position:absolute;
+            bottom:70px;
+            right:35px;
+            width:115px;
+            height:115px;
+            border-radius:50%;
+            background:linear-gradient(145deg, #555, #333);
+            border:6px solid #666;
+            font-size:1.3em;
+            color:#fff;
+            font-weight:900;
+            cursor:pointer;
+            z-index:70;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            flex-direction:column;
+            box-shadow:0 5px 10px rgba(0,0,0,0.5);
+            transition:all 0.2s;
+            text-transform:uppercase;
+            opacity:0.4;
+            pointer-events:none;
+        }
+        #attack-btn.can-attack {
+            background:linear-gradient(145deg, #27ae60, #229954);
+            border-color:#fff;
+            box-shadow:0 8px 18px rgba(39,174,96,0.8), 0 0 45px rgba(39,174,96,0.6);
+            animation:pulse-attack 1.3s infinite;
+            opacity:1;
+            pointer-events:all;
+        }
+        @keyframes pulse-attack {
+            0%, 100% { box-shadow:0 8px 18px rgba(39,174,96,0.8), 0 0 45px rgba(39,174,96,0.6); transform:scale(1); }
+            50% { box-shadow:0 10px 22px rgba(39,174,96,1), 0 0 55px rgba(39,174,96,0.8); transform:scale(1.05); }
+        }
+        #attack-btn.on-cd {
+            pointer-events:none;
+            opacity:0.3;
+        }
+
+        #shield-btn {
+            position:absolute;
+            bottom:200px;
+            right:35px;
+            width:90px;
+            height:90px;
+            border-radius:50%;
+            background:linear-gradient(145deg, #3498db, #2980b9);
+            border:5px solid #fff;
+            font-size:1.1em;
+            color:#fff;
+            font-weight:900;
+            cursor:pointer;
+            z-index:70;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            flex-direction:column;
+            box-shadow:0 5px 10px rgba(0,0,0,0.5);
+            transition:all 0.2s;
+        }
+        #shield-btn.active {
+            background:linear-gradient(145deg, #1a5276, #154360);
+            border-color:#85c1e9;
+        }
+        #shield-btn.on-cd {
+            background:linear-gradient(145deg, #555, #333);
+            opacity:0.4;
+            pointer-events:none;
+        }
 
         /* ── МОДАЛКИ ── */
         .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:1000; align-items:center; justify-content:center; padding:16px; }
@@ -152,34 +294,37 @@
     <button class="btn-red" onclick="cancelSearch()">ОТМЕНА</button>
 </div>
 
+<!-- НОВЫЙ БОЙ С CANVAS -->
 <div id="battle-screen">
-    <div id="kit-controls">
-        <button class="kit-btn" onclick="moveKit('up')">⬆️</button>
-        <button class="kit-btn" onclick="moveKit('down')">⬇️</button>
-        <button class="kit-btn" onclick="moveKit('reset')">⏺️</button>
+    <canvas id="battle-canvas"></canvas>
+    
+    <!-- HP бары -->
+    <div class="hp-hud" id="my-hp-hud">
+        <div class="hp-name" id="my-hp-name">ТЫ</div>
+        <div class="hp-bar-top">
+            <div class="hp-fill-top" id="my-hp-fill" style="width:100%"></div>
+            <div class="hp-text-top" id="my-hp-text">100/100</div>
+        </div>
+    </div>
+    
+    <div class="hp-hud" id="enemy-hp-hud">
+        <div class="hp-name" id="enemy-hp-name">ВРАГ</div>
+        <div class="hp-bar-top">
+            <div class="hp-fill-top" id="enemy-hp-fill" style="width:100%"></div>
+            <div class="hp-text-top" id="enemy-hp-text">100/100</div>
+        </div>
     </div>
 
-    <div id="battle-arena">
-        <div class="fighter" id="fighter-me">
-            <div id="my-shield-indicator" class="shield-indicator">🛡️</div>
-            <div class="hp-container">
-                <div class="hp-bar"><div id="p-hp-fill" class="hp-fill"></div><div id="p-hp-text" class="hp-text">0/0</div></div>
-            </div>
-            <img id="p-battle-img" src="Shellu.png" class="fighter-img">
-        </div>
-        <div class="fighter" id="fighter-enemy">
-            <div id="enemy-player-label" class="player-label"></div>
-            <div id="enemy-shield-indicator" class="shield-indicator">🛡️</div>
-            <div class="hp-container">
-                <div class="hp-bar"><div id="e-hp-fill" class="hp-fill" style="background:#e74c3c"></div><div id="e-hp-text" class="hp-text">0/0</div></div>
-            </div>
-            <img id="e-battle-img" src="Shellu.png" class="fighter-img">
+    <!-- Джойстик -->
+    <div id="joystick-zone">
+        <div id="joystick-base">
+            <div id="joystick-stick"></div>
         </div>
     </div>
-    <div id="battle-controls">
-        <button id="atk-btn" class="battle-btn">АТАКА<div class="cd-overlay" id="atk-cd-overlay"></div></button>
-        <button id="def-btn" class="battle-btn">ЩИТ<div class="cd-overlay" id="def-cd-overlay"></div></button>
-    </div>
+
+    <!-- Кнопки -->
+    <div id="attack-btn">⚔️<br><span style="font-size:0.65em;">АТАКА</span></div>
+    <div id="shield-btn">🛡️<br><span style="font-size:0.65em;">ЩИТ</span></div>
 </div>
 
 <div id="brawlers-menu">
@@ -235,13 +380,6 @@
             <button class="btn-red" style="background:#27ae60; box-shadow:0 4px 0 #1e7e34;" onclick="addCoinsToSelf()">+ Добавить себе</button>
             <button class="btn-red" style="background:#e74c3c; box-shadow:0 4px 0 #9e2a21;" onclick="removeCoinsFromSelf()">- Забрать у себя</button>
         </div>
-
-        <div style="background:#1a1a1a; padding:16px; border-radius:12px; margin-bottom:16px; border:2px solid #2ecc71;">
-            <h2 style="color:#ffc107; margin-top:0;">🏆 КУБКИ ЗА ПОБЕДУ (Только для тебя)</h2>
-            <input type="number" id="admin-trophy-input" placeholder="Кол-во (напр. 100)" style="padding:10px; font-size:1em; border-radius:8px; border:2px solid #2ecc71; background:#222; color:#fff; width:180px; margin-right:10px;">
-            <button class="btn-red" style="background:#2ecc71; box-shadow:0 4px 0 #27ae60;" onclick="setCustomTrophies()">Применить</button>
-            <p id="admin-trophy-status" style="color:#aaa; font-size:0.9em; margin-top:10px;">Сейчас: Стандартно</p>
-        </div>
         
         <div style="background:#1a1a1a; padding:16px; border-radius:12px; margin-bottom:16px; border:2px solid #9b59b6;">
             <h2 style="color:#ffc107; margin-top:0;">👊 МОИ БОЙЦЫ</h2>
@@ -280,16 +418,16 @@ firebase.initializeApp({ databaseURL:"https://greenbank-cc943-default-rtdb.fireb
 const db = firebase.database();
 
 const HEROES = {
-    shelly:{ hp:350,  dmg:35,  reload:2000, img:'Shellu.png' },
-    kolt:  { hp:500,  dmg:10,  reload:500,  img:'Kolt.png',  unlock:40 },
-    dino:  { hp:1000, dmg:30,  reload:3500, img:'Dino.png',  unlock:150 },
-    stu:   { hp:660,  dmg:4,   reload:300,  img:'stu.png',   unlock:500 },
-    leon:  { hp:750,  dmg:13,  reload:700,  img:'leon.png',  unlock:750 },
-    voron: { hp:1000, dmg:15,  reload:1000, img:'voron.png', unlock:1000, hasPoison:true },
-    '8bit':{ hp:1500, dmg:5,   reload:1500, img:'8bit.png',  unlock:1250 },
-    mort:  { hp:350,  dmg:2,   reload:1,    img:'mort.png' },
-    drako: { hp:700,  dmg:15,  reload:2000, img:'drako.png', hasUlt:true, ultForm:'drakou.png', ultDmg:35 },
-    kit:   { hp:700,  dmg:35,  reload:2500, img:'kit.png' }
+    shelly:{ hp:350,  dmg:35,  reload:2000, img:'Shellu.png', speed:3, attackRange:120 },
+    kolt:  { hp:500,  dmg:10,  reload:500,  img:'Kolt.png',  unlock:40, speed:3.5, attackRange:140 },
+    dino:  { hp:1000, dmg:30,  reload:3500, img:'Dino.png',  unlock:150, speed:2, attackRange:100 },
+    stu:   { hp:660,  dmg:4,   reload:300,  img:'stu.png',   unlock:500, speed:4.5, attackRange:100 },
+    leon:  { hp:750,  dmg:13,  reload:700,  img:'leon.png',  unlock:750, speed:4, attackRange:110 },
+    voron: { hp:1000, dmg:15,  reload:1000, img:'voron.png', unlock:1000, hasPoison:true, speed:3, attackRange:130 },
+    '8bit':{ hp:1500, dmg:5,   reload:1500, img:'8bit.png',  unlock:1250, speed:2, attackRange:150 },
+    mort:  { hp:350,  dmg:2,   reload:1,    img:'mort.png', speed:2.5, attackRange:90 },
+    drako: { hp:700,  dmg:15,  reload:2000, img:'drako.png', hasUlt:true, ultForm:'drakou.png', ultDmg:35, speed:3, attackRange:110 },
+    kit:   { hp:700,  dmg:35,  reload:2500, img:'kit.png', speed:3.75, attackRange:100 } // +25% скорости
 };
 const SHIELD_ACTIVE = 3000;
 const SHIELD_CD     = 3000;
@@ -306,8 +444,10 @@ let stats = {
 
 let nickTapCount = 0;
 let nickTapTimer = null;
-let adminCustomTrophyWin = null; // Кастомные кубки за победу
 
+// ══════════════════════════════════════════════════════════════
+// СИСТЕМА БОЯ С CANVAS
+// ══════════════════════════════════════════════════════════════
 let B = {
     active:false, pvp:false, myRole:'', matchId:'',
     myHeroId:'', enemyHeroId:'',
@@ -317,8 +457,16 @@ let B = {
     shieldTimer:null, shieldCdTimer:null, shieldCdInterval:null,
     atkOnCD:false, atkCdTimer:null, atkCdInterval:null,
     botTimer:null, stateListener:null, matchDbRef:null,
-    myUltHits:0, enemyUltHits:0, myUltActive:false, enemyUltActive:false
+    myUltHits:0, enemyUltHits:0, myUltActive:false, enemyUltActive:false,
+    // НОВОЕ ДЛЯ CANVAS
+    canvas:null, ctx:null,
+    myX:0, myY:0, enemyX:0, enemyY:0,
+    joystickActive:false, joystickAngle:0, joystickPower:0,
+    canAttack:false
 };
+
+const ARENA_WIDTH = 1200;
+const ARENA_HEIGHT = 800;
 
 let myQueueRef=null, searchQueueListener=null, searchMatchListener=null;
 let searchCancelled=false, alreadyMatched=false;
@@ -583,7 +731,7 @@ function buyDrakoCase(){
             <p style="color:#555">Легендарная удача!</p>
             <button class="btn-red" onclick="closeModal()">ЗАБРАТЬ!</button>`;
     } else {
-        const earned = Math.floor(Math.random()*251) + 750;
+        const earned = Math.floor(Math.random()*1251) + 500;
         stats.coins += earned;
         document.getElementById('coins-ui').innerText='💰 '+stats.coins;
         saveData();
@@ -608,16 +756,17 @@ function buyKitCase(){
     const c=document.getElementById('modal-content');
     document.getElementById('universal-modal').style.display='flex';
 
-    if(roll < 0.40){
+    if(roll < 0.03){
         if(!stats.unlocked.includes('kit')) stats.unlocked.push('kit');
         saveData(); updateBrawlersUI();
         c.innerHTML=`
             <h2 style="color:#f1c40f">📦 КИТ КЕЙС</h2>
             <img src="kit.png" width="100" class="case-anim" style="margin:10px 0">
-            <h2 style="color:#f1c40f">🐱 КИТ!</h2>
+            <h2 style="color:#f1c40f">✨ КИТ!</h2>
+            <p style="color:#555">МЕГА УДАЧА!!!</p>
             <button class="btn-red" onclick="closeModal()">ЗАБРАТЬ!</button>`;
     } else {
-        const earned = Math.floor(Math.random() * (2500 - 1000 + 1)) + 1000;
+        const earned = Math.floor(Math.random()*2001) + 1000;
         stats.coins += earned;
         document.getElementById('coins-ui').innerText='💰 '+stats.coins;
         saveData();
@@ -630,7 +779,6 @@ function buyKitCase(){
 }
 
 async function showLeaders(){
-    document.getElementById('modal-content').innerHTML='<h2>ТОП ИГРОКОВ</h2><p>Загрузка...</p>';
     document.getElementById('universal-modal').style.display='flex';
     try{
         const snap=await db.ref('players').get();
@@ -665,12 +813,6 @@ function showModal(type,win){
         if(win){ stats.winStreak++; } else { stats.winStreak=0; }
 
         let base = win ? (stats.totalTrophies<30?15:stats.totalTrophies<70?12:8) : -20;
-        
-        // Перехватываем кубки за победу, если настроено в админке
-        if(win && adminCustomTrophyWin !== null) {
-            base = adminCustomTrophyWin;
-        }
-
         let streakBonus = 0;
         if(win && stats.winStreak>=4) streakBonus=10;
         else if(win && stats.winStreak>=2) streakBonus=5;
@@ -769,8 +911,10 @@ async function startSearch(){
         const mid=sorted[0]+'_'+sorted[1]+'_'+Date.now();
         const h1=stats.currentHero, h2=opp.hero;
         db.ref('matches/'+mid).set({
-            player1:stats.nick, hero1:h1, hp1:HEROES[h1].hp, shield1:false, pos1:0,
-            player2:opp.nick,   hero2:h2, hp2:HEROES[h2].hp, shield2:false, pos2:0,
+            player1:stats.nick, hero1:h1, hp1:HEROES[h1].hp, shield1:false,
+            x1:200, y1:400,
+            player2:opp.nick,   hero2:h2, hp2:HEROES[h2].hp, shield2:false,
+            x2:1000, y2:400,
             ready:true, ts:Date.now()
         }).then(()=>{
             db.ref('queue/'+stats.nick).remove();
@@ -794,6 +938,9 @@ async function startSearch(){
     setTimeout(()=>{ if(searchCancelled||alreadyMatched) return; alreadyMatched=true; cleanupSearch(); launchBotBattle(); },10000);
 }
 
+// ══════════════════════════════════════════════════════════════
+// ВХОД В БОЙ PVP
+// ══════════════════════════════════════════════════════════════
 function enterPvP(matchId,myRole,enemyNick,enemyHeroId){
     cleanupSearch();
     B.pvp=true; B.myRole=myRole; B.matchId=matchId;
@@ -811,18 +958,10 @@ function enterPvP(matchId,myRole,enemyNick,enemyHeroId){
     document.getElementById('search-screen').style.display='none';
     document.getElementById('battle-screen').style.display='block';
     
-    // Сброс позиций Кита при старте
-    document.getElementById('p-battle-img').style.transform = 'translateY(0)';
-    document.getElementById('e-battle-img').style.transform = 'translateY(0)';
-    
-    if(stats.currentHero === 'kit') document.getElementById('kit-controls').style.display = 'flex';
-    else document.getElementById('kit-controls').style.display = 'none';
+    document.getElementById('my-hp-name').innerText = stats.nick;
+    document.getElementById('enemy-hp-name').innerText = enemyNick;
 
-    document.getElementById('p-battle-img').src=HEROES[stats.currentHero].img;
-    document.getElementById('e-battle-img').src=HEROES[enemyHeroId]?.img||'Shellu.png';
-    const lbl=document.getElementById('enemy-player-label');
-    lbl.innerText='👤 '+enemyNick; lbl.classList.add('show');
-    resetBattleUI();
+    initCanvasBattle();
 
     B.stateListener=B.matchDbRef.on('value',snap=>{
         if(!B.active||!snap.exists()) return;
@@ -830,61 +969,373 @@ function enterPvP(matchId,myRole,enemyNick,enemyHeroId){
         const myHPkey    = myRole==='player1'?'hp1':'hp2';
         const enemyHPkey = myRole==='player1'?'hp2':'hp1';
         const enShKey    = myRole==='player1'?'shield2':'shield1';
-        const enemyUltHitsKey = myRole==='player1'?'ultHits2':'ultHits1';
-        const enemyUltActiveKey = myRole==='player1'?'ultActive2':'ultActive1';
-        
-        // Синхронизация позиции врага
-        const enemyPosKey = myRole==='player1'?'pos2':'pos1';
-        const enemyPos = state[enemyPosKey] || 0;
-        
-        document.getElementById('e-battle-img').style.transform = 'translateY(' + enemyPos + 'px)';
+        const enemyXkey = myRole==='player1'?'x2':'x1';
+        const enemyYkey = myRole==='player1'?'y2':'y1';
         
         const myHP    = state[myHPkey]??B.myMaxHP;
         const enemyHP = state[enemyHPkey]??B.enemyMaxHP;
         const enShield= state[enShKey]??false;
         
-        const enemyHero = HEROES[B.enemyHeroId];
-        if(enemyHero?.hasUlt){
-            const enemyUltHits = state[enemyUltHitsKey]||0;
-            const enemyUltActive = state[enemyUltActiveKey]||false;
-            if(enemyUltActive && !B.enemyUltActive) activateDrakoUlt(false);
-            B.enemyUltHits = enemyUltHits;
-        }
+        B.enemyX = state[enemyXkey] || B.enemyX;
+        B.enemyY = state[enemyYkey] || B.enemyY;
         
-        renderBars(myHP,B.myMaxHP,enemyHP,B.enemyMaxHP);
-        if(enShield) document.getElementById('enemy-shield-indicator').classList.add('show');
-        else document.getElementById('enemy-shield-indicator').classList.remove('show');
+        renderBarsCanvas(myHP,B.myMaxHP,enemyHP,B.enemyMaxHP);
         if(myHP<=0)    { endBattle(false); return; }
         if(enemyHP<=0) { endBattle(true);  return; }
     });
 }
 
-// Управление для Кита с синхронизацией по сети
-function moveKit(dir) {
-    if(!B.active) return;
-    const img = document.getElementById('p-battle-img');
-    let offset = 0;
-    
-    if(dir === 'up') offset = -200;
-    else if(dir === 'down') offset = 150;
-    
-    img.style.transform = 'translateY(' + offset + 'px)';
-    
-    if(B.pvp) {
-        const posKey = B.myRole === 'player1' ? 'pos1' : 'pos2';
-        B.matchDbRef.update({ [posKey]: offset });
+// ══════════════════════════════════════════════════════════════
+// ЗАПУСК БОЯ С БОТОМ
+// ══════════════════════════════════════════════════════════════
+function launchBotBattle(){
+    const ids=Object.keys(HEROES);
+    const enemyHeroId=ids[Math.floor(Math.random()*ids.length)];
+    const enemyHero=HEROES[enemyHeroId];
+    const myHero=HEROES[stats.currentHero];
+    B.pvp=false; B.myRole=''; B.matchId='';
+    B.myHeroId=stats.currentHero; B.enemyHeroId=enemyHeroId;
+    B.myMaxHP=myHero.hp; B.enemyMaxHP=Math.floor(enemyHero.hp*1.1);
+    B.myHP_bot=B.myMaxHP; B.enemyHP_bot=B.enemyMaxHP;
+    B.active=true; B.myShieldActive=false; B.myShieldOnCD=false; B.atkOnCD=false;
+    B.myUltHits=0; B.enemyUltHits=0; B.myUltActive=false; B.enemyUltActive=false;
+
+    localStorage.setItem('benubs_bot_battle', 'true');
+
+    document.getElementById('search-screen').style.display='none';
+    document.getElementById('battle-screen').style.display='block';
+
+    document.getElementById('my-hp-name').innerText = stats.nick;
+    document.getElementById('enemy-hp-name').innerText = 'БОТ';
+
+    initCanvasBattle();
+    renderBarsCanvas(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP);
+
+    // БОТ ИДЁТ К ИГРОКУ И АТАКУЕТ
+    if(enemyHero.reload<=10){
+        let last=Date.now();
+        const loop=()=>{
+            if(!B.active) return;
+            const now=Date.now();
+            if(now-last>=enemyHero.reload){
+                last=now;
+                if(!B.myShieldActive){
+                    B.myHP_bot=Math.max(0,B.myHP_bot-enemyHero.dmg);
+                    renderBarsCanvas(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP);
+                    if(B.myHP_bot<=0){ endBattle(false); return; }
+                }
+            }
+            requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+    } else {
+        B.botTimer=setInterval(()=>{
+            if(!B.active) return;
+            
+            // БОТ ДВИЖЕТСЯ К ИГРОКУ
+            const dx = B.myX - B.enemyX;
+            const dy = B.myY - B.enemyY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const enemyHero = HEROES[B.enemyHeroId];
+            const speed = enemyHero.speed || 3;
+            
+            if(dist > enemyHero.attackRange){
+                const angle = Math.atan2(dy, dx);
+                B.enemyX += Math.cos(angle) * speed;
+                B.enemyY += Math.sin(angle) * speed;
+            } else {
+                // ВРАГ В РАДИУСЕ - АТАКА
+                if(!B.myShieldActive){
+                    let botDmg = enemyHero.dmg;
+                    if(enemyHero.hasUlt && !B.enemyUltActive){
+                        B.enemyUltHits++;
+                        if(B.enemyUltHits >= 3){ botDmg = enemyHero.ultDmg; }
+                    } else if(B.enemyUltActive){
+                        botDmg = enemyHero.ultDmg;
+                    }
+                    
+                    if(enemyHero.hasPoison){
+                        let ticks = 0;
+                        let pTimer = setInterval(() => {
+                            if(!B.active) { clearInterval(pTimer); return; }
+                            ticks++;
+                            B.myHP_bot = Math.max(0, B.myHP_bot - 3);
+                            renderBarsCanvas(B.myHP_bot, B.myMaxHP, B.enemyHP_bot, B.enemyMaxHP);
+                            if(B.myHP_bot <= 0) endBattle(false);
+                            if(ticks >= 3) clearInterval(pTimer);
+                        }, 1000);
+                    }
+
+                    B.myHP_bot=Math.max(0,B.myHP_bot-botDmg);
+                    renderBarsCanvas(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP);
+                    if(B.myHP_bot<=0) endBattle(false);
+                }
+            }
+        },enemyHero.reload);
     }
 }
 
-document.getElementById('atk-btn').onclick=function(){
-    if(!B.active||B.atkOnCD||B.myShieldActive) return;
-    const myHero=HEROES[B.myHeroId||stats.currentHero];
+// ══════════════════════════════════════════════════════════════
+// CANVAS СИСТЕМА БОЯ
+// ══════════════════════════════════════════════════════════════
+function initCanvasBattle(){
+    B.canvas = document.getElementById('battle-canvas');
+    B.ctx = B.canvas.getContext('2d');
     
+    B.canvas.width = ARENA_WIDTH;
+    B.canvas.height = ARENA_HEIGHT;
+    
+    // Стартовые позиции
+    B.myX = 200;
+    B.myY = 400;
+    B.enemyX = 1000;
+    B.enemyY = 400;
+    
+    setupJoystick();
+    setupBattleButtons();
+    
+    requestAnimationFrame(battleLoop);
+}
+
+function setupJoystick(){
+    const joystickZone = document.getElementById('joystick-zone');
+    const joystickStick = document.getElementById('joystick-stick');
+    let touchId = null;
+    
+    joystickZone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        touchId = e.touches[0].identifier;
+        B.joystickActive = true;
+        updateJoystick(e.touches[0]);
+    });
+    
+    joystickZone.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        for (let touch of e.touches) {
+            if (touch.identifier === touchId) {
+                updateJoystick(touch);
+                break;
+            }
+        }
+    });
+    
+    joystickZone.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        B.joystickActive = false;
+        B.joystickPower = 0;
+        joystickStick.style.transform = 'translate(-50%, -50%)';
+    });
+    
+    // ПОДДЕРЖКА МЫШИ ДЛЯ ПК
+    joystickZone.addEventListener('mousedown', (e) => {
+        B.joystickActive = true;
+        updateJoystick(e);
+    });
+    
+    joystickZone.addEventListener('mousemove', (e) => {
+        if(B.joystickActive) updateJoystick(e);
+    });
+    
+    joystickZone.addEventListener('mouseup', () => {
+        B.joystickActive = false;
+        B.joystickPower = 0;
+        joystickStick.style.transform = 'translate(-50%, -50%)';
+    });
+    
+    function updateJoystick(input) {
+        const rect = joystickZone.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        const clientX = input.clientX || input.touches[0].clientX;
+        const clientY = input.clientY || input.touches[0].clientY;
+        
+        const dx = clientX - centerX;
+        const dy = clientY - centerY;
+        
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const maxDistance = rect.width / 2 - 40;
+        
+        B.joystickAngle = Math.atan2(dy, dx);
+        B.joystickPower = Math.min(distance / maxDistance, 1);
+        
+        const clampedDist = Math.min(distance, maxDistance);
+        const stickX = Math.cos(B.joystickAngle) * clampedDist;
+        const stickY = Math.sin(B.joystickAngle) * clampedDist;
+        
+        joystickStick.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`;
+    }
+}
+
+function setupBattleButtons(){
+    const attackBtn = document.getElementById('attack-btn');
+    const shieldBtn = document.getElementById('shield-btn');
+    
+    attackBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        performAttack();
+    });
+    
+    attackBtn.addEventListener('click', () => {
+        performAttack();
+    });
+    
+    shieldBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        activateShield();
+    });
+    
+    shieldBtn.addEventListener('click', () => {
+        activateShield();
+    });
+}
+
+function battleLoop(){
+    if(!B.active) return;
+    
+    // ДВИЖЕНИЕ ИГРОКА
+    if(B.joystickActive && B.joystickPower > 0.1){
+        const myHero = HEROES[B.myHeroId];
+        const speed = (myHero.speed || 3) * B.joystickPower;
+        
+        const dx = Math.cos(B.joystickAngle) * speed;
+        const dy = Math.sin(B.joystickAngle) * speed;
+        
+        B.myX = Math.max(70, Math.min(ARENA_WIDTH - 70, B.myX + dx));
+        B.myY = Math.max(70, Math.min(ARENA_HEIGHT - 70, B.myY + dy));
+        
+        // ОТПРАВКА ОНЛАЙН
+        if(B.pvp && B.matchDbRef){
+            const myXkey = B.myRole==='player1'?'x1':'x2';
+            const myYkey = B.myRole==='player1'?'y1':'y2';
+            B.matchDbRef.update({
+                [myXkey]: B.myX,
+                [myYkey]: B.myY
+            });
+        }
+    }
+    
+    // ПРОВЕРКА РАДИУСА АТАКИ
+    const distance = Math.sqrt((B.myX - B.enemyX)**2 + (B.myY - B.enemyY)**2);
+    const myHero = HEROES[B.myHeroId];
+    const attackRange = myHero.attackRange || 120;
+    
+    B.canAttack = distance <= attackRange;
+    
+    const attackBtn = document.getElementById('attack-btn');
+    if(B.canAttack && !B.atkOnCD){
+        attackBtn.classList.add('can-attack');
+    } else {
+        attackBtn.classList.remove('can-attack');
+    }
+    
+    // ОТРИСОВКА
+    drawBattleCanvas();
+    
+    requestAnimationFrame(battleLoop);
+}
+
+function drawBattleCanvas(){
+    const ctx = B.ctx;
+    
+    // ФОН
+    const gradient = ctx.createLinearGradient(0, 0, 0, ARENA_HEIGHT);
+    gradient.addColorStop(0, '#1a4d2e');
+    gradient.addColorStop(0.5, '#2d5a3d');
+    gradient.addColorStop(1, '#1a4d2e');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, ARENA_WIDTH, ARENA_HEIGHT);
+    
+    // СЕТКА
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth = 1;
+    for(let i = 0; i < ARENA_WIDTH; i += 70){
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, ARENA_HEIGHT);
+        ctx.stroke();
+    }
+    for(let i = 0; i < ARENA_HEIGHT; i += 70){
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(ARENA_WIDTH, i);
+        ctx.stroke();
+    }
+    
+    // РАДИУС АТАКИ ИГРОКА
+    const myHero = HEROES[B.myHeroId];
+    const attackRange = myHero.attackRange || 120;
+    ctx.beginPath();
+    ctx.arc(B.myX, B.myY, attackRange, 0, Math.PI * 2);
+    ctx.strokeStyle = B.canAttack ? 'rgba(39, 174, 96, 0.8)' : 'rgba(255, 193, 7, 0.4)';
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.fillStyle = B.canAttack ? 'rgba(39, 174, 96, 0.15)' : 'rgba(255, 193, 7, 0.08)';
+    ctx.fill();
+    
+    // РАДИУС АТАКИ ВРАГА
+    const enemyHero = HEROES[B.enemyHeroId];
+    const enemyRange = enemyHero.attackRange || 120;
+    ctx.beginPath();
+    ctx.arc(B.enemyX, B.enemyY, enemyRange, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(231, 76, 60, 0.5)';
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(231, 76, 60, 0.08)';
+    ctx.fill();
+    
+    // ПЕРСОНАЖИ
+    drawCharacter(B.myX, B.myY, B.myHeroId, B.myShieldActive, '#ffc107');
+    drawCharacter(B.enemyX, B.enemyY, B.enemyHeroId, false, '#e74c3c');
+}
+
+function drawCharacter(x, y, heroId, hasShield, color){
+    const ctx = B.ctx;
+    
+    // ТЕНЬ
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 42, 32, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ТЕЛО
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, 38, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    
+    // ЩИТ
+    if(hasShield){
+        ctx.strokeStyle = '#3498db';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(x, y, 55, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.fillStyle = 'rgba(52, 152, 219, 0.3)';
+        ctx.fill();
+        
+        ctx.font = 'bold 40px Arial';
+        ctx.fillStyle = '#3498db';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🛡️', x, y);
+    }
+}
+
+function performAttack(){
+    if(!B.canAttack || B.atkOnCD || !B.active) return;
+    
+    const myHero = HEROES[B.myHeroId];
     let actualDmg = myHero.dmg;
+    
     if(myHero.hasUlt && !B.myUltActive){
         B.myUltHits++;
         if(B.myUltHits >= 3){
-            activateDrakoUlt(true);
             actualDmg = myHero.ultDmg;
         }
     } else if(B.myUltActive){
@@ -905,7 +1356,7 @@ document.getElementById('atk-btn').onclick=function(){
                 });
             } else {
                 B.enemyHP_bot = Math.max(0, B.enemyHP_bot - 3);
-                renderBars(B.myHP_bot, B.myMaxHP, B.enemyHP_bot, B.enemyMaxHP);
+                renderBarsCanvas(B.myHP_bot, B.myMaxHP, B.enemyHP_bot, B.enemyMaxHP);
                 if(B.enemyHP_bot <= 0) endBattle(true);
             }
             if(ticks >= 3) clearInterval(pTimer);
@@ -915,185 +1366,71 @@ document.getElementById('atk-btn').onclick=function(){
     if(B.pvp){
         const enemyHPkey=B.myRole==='player1'?'hp2':'hp1';
         const enemyShKey=B.myRole==='player1'?'shield2':'shield1';
-        const ultHitsKey=B.myRole==='player1'?'ultHits1':'ultHits2';
-        const ultActiveKey=B.myRole==='player1'?'ultActive1':'ultActive2';
         
         B.matchDbRef.once('value').then(snap=>{
             if(!B.active) return;
             const state=snap.val(); if(!state) return;
             if(!(state[enemyShKey]||false)){
-                let updates = {[enemyHPkey]:Math.max(0,(state[enemyHPkey]||0)-actualDmg)};
-                if(myHero.hasUlt){
-                    updates[ultHitsKey] = B.myUltHits;
-                    updates[ultActiveKey] = B.myUltActive;
-                }
-                B.matchDbRef.update(updates);
+                B.matchDbRef.update({[enemyHPkey]:Math.max(0,(state[enemyHPkey]||0)-actualDmg)});
             }
         });
     } else {
         B.enemyHP_bot=Math.max(0,B.enemyHP_bot-actualDmg);
-        renderBars(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP);
+        renderBarsCanvas(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP);
         if(B.enemyHP_bot<=0){ endBattle(true); return; }
     }
+    
     startAtkCooldown(myHero.reload);
-};
+}
 
 function startAtkCooldown(ms){
     B.atkOnCD=true;
-    const btn=document.getElementById('atk-btn');
-    const ovr=document.getElementById('atk-cd-overlay');
-    btn.classList.add('on-cd'); ovr.classList.add('show');
-    let rem=Math.ceil(ms/1000); ovr.innerText=rem>0?rem:'';
-    B.atkCdInterval=setInterval(()=>{ rem=Math.max(0,rem-1); ovr.innerText=rem>0?rem:''; },1000);
-    B.atkCdTimer=setTimeout(()=>{ B.atkOnCD=false; btn.classList.remove('on-cd'); ovr.classList.remove('show'); clearInterval(B.atkCdInterval); },ms);
+    const btn=document.getElementById('attack-btn');
+    btn.classList.add('on-cd');
+    btn.classList.remove('can-attack');
+    
+    B.atkCdTimer=setTimeout(()=>{ 
+        B.atkOnCD=false; 
+        btn.classList.remove('on-cd'); 
+    },ms);
 }
 
-document.getElementById('def-btn').onclick=function(){
-    if(!B.active||B.myShieldActive||B.myShieldOnCD) return;
-    activateShield();
-};
-
 function activateShield(){
+    if(!B.active||B.myShieldActive||B.myShieldOnCD) return;
     B.myShieldActive=true;
-    const defBtn=document.getElementById('def-btn');
-    const defOvr=document.getElementById('def-cd-overlay');
-    const myInd=document.getElementById('my-shield-indicator');
-    defBtn.classList.add('shield-active'); defBtn.classList.remove('shield-cd');
-    myInd.classList.add('show'); defOvr.classList.add('show');
-    if(B.pvp){ const shKey=B.myRole==='player1'?'shield1':'shield2'; B.matchDbRef.update({[shKey]:true}); }
-
-    let rem=SHIELD_ACTIVE/1000; defOvr.innerText=rem;
-    B.shieldCdInterval=setInterval(()=>{ rem=Math.max(0,rem-1); defOvr.innerText=rem||''; },1000);
+    
+    const btn=document.getElementById('shield-btn');
+    btn.classList.add('active');
+    btn.classList.remove('on-cd');
+    
+    if(B.pvp){ 
+        const shKey=B.myRole==='player1'?'shield1':'shield2'; 
+        B.matchDbRef.update({[shKey]:true}); 
+    }
 
     B.shieldTimer=setTimeout(()=>{
         B.myShieldActive=false;
-        defBtn.classList.remove('shield-active'); defBtn.classList.add('shield-cd');
-        myInd.classList.remove('show'); clearInterval(B.shieldCdInterval);
-        if(B.pvp){ const shKey=B.myRole==='player1'?'shield1':'shield2'; B.matchDbRef.update({[shKey]:false}); }
+        btn.classList.remove('active'); 
+        btn.classList.add('on-cd');
+        
+        if(B.pvp){ 
+            const shKey=B.myRole==='player1'?'shield1':'shield2'; 
+            B.matchDbRef.update({[shKey]:false}); 
+        }
+        
         B.myShieldOnCD=true;
-        let cdRem=SHIELD_CD/1000; defOvr.innerText=cdRem;
-        B.shieldCdInterval=setInterval(()=>{ cdRem=Math.max(0,cdRem-1); defOvr.innerText=cdRem||''; },1000);
         B.shieldCdTimer=setTimeout(()=>{
-            B.myShieldOnCD=false; defBtn.classList.remove('shield-cd');
-            defOvr.classList.remove('show'); clearInterval(B.shieldCdInterval);
+            B.myShieldOnCD=false; 
+            btn.classList.remove('on-cd');
         },SHIELD_CD);
     },SHIELD_ACTIVE);
 }
 
-function activateDrakoUlt(isMyHero){
-    if(isMyHero){
-        B.myUltActive = true;
-        B.myUltHits = 0;
-        if(B.pvp){ const myHPkey = B.myRole==='player1'?'hp1':'hp2'; B.matchDbRef.update({[myHPkey]: B.myMaxHP}); }
-        else { B.myHP_bot = B.myMaxHP; renderBars(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP); }
-        const myImg = document.getElementById('p-battle-img');
-        myImg.src = 'drakou.png';
-        setTimeout(()=>{
-            B.myUltActive = false;
-            myImg.src = 'drako.png';
-            if(B.pvp){ const ultActiveKey = B.myRole==='player1'?'ultActive1':'ultActive2'; B.matchDbRef.update({[ultActiveKey]: false}); }
-        }, 5000);
-    } else {
-        B.enemyUltActive = true;
-        B.enemyUltHits = 0;
-        if(B.pvp){ const enemyHPkey = B.myRole==='player1'?'hp2':'hp1'; B.matchDbRef.update({[enemyHPkey]: B.enemyMaxHP}); }
-        else { B.enemyHP_bot = B.enemyMaxHP; renderBars(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP); }
-        const enemyImg = document.getElementById('e-battle-img');
-        enemyImg.src = 'drakou.png';
-        setTimeout(()=>{ B.enemyUltActive = false; enemyImg.src = 'drako.png'; }, 5000);
-    }
-}
-
-function launchBotBattle(){
-    const ids=Object.keys(HEROES);
-    const enemyHeroId=ids[Math.floor(Math.random()*ids.length)];
-    const enemyHero=HEROES[enemyHeroId];
-    const myHero=HEROES[stats.currentHero];
-    B.pvp=false; B.myRole=''; B.matchId='';
-    B.myHeroId=stats.currentHero; B.enemyHeroId=enemyHeroId;
-    B.myMaxHP=myHero.hp; B.enemyMaxHP=Math.floor(enemyHero.hp*1.1);
-    B.myHP_bot=B.myMaxHP; B.enemyHP_bot=B.enemyMaxHP;
-    B.active=true; B.myShieldActive=false; B.myShieldOnCD=false; B.atkOnCD=false;
-    B.myUltHits=0; B.enemyUltHits=0; B.myUltActive=false; B.enemyUltActive=false;
-
-    localStorage.setItem('benubs_bot_battle', 'true');
-
-    document.getElementById('search-screen').style.display='none';
-    document.getElementById('battle-screen').style.display='block';
-
-    document.getElementById('p-battle-img').style.transform = 'translateY(0)';
-    document.getElementById('e-battle-img').style.transform = 'translateY(0)';
-    if(stats.currentHero === 'kit') document.getElementById('kit-controls').style.display = 'flex';
-    else document.getElementById('kit-controls').style.display = 'none';
-
-    document.getElementById('p-battle-img').src=myHero.img;
-    document.getElementById('e-battle-img').src=enemyHero.img;
-    document.getElementById('enemy-player-label').classList.remove('show');
-    resetBattleUI();
-    renderBars(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP);
-
-    if(enemyHero.reload<=10){
-        let last=Date.now();
-        const loop=()=>{
-            if(!B.active) return;
-            const now=Date.now();
-            if(now-last>=enemyHero.reload){
-                last=now;
-                if(!B.myShieldActive){
-                    B.myHP_bot=Math.max(0,B.myHP_bot-enemyHero.dmg);
-                    renderBars(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP);
-                    if(B.myHP_bot<=0){ endBattle(false); return; }
-                }
-            }
-            requestAnimationFrame(loop);
-        };
-        requestAnimationFrame(loop);
-    } else {
-        B.botTimer=setInterval(()=>{
-            if(!B.active) return;
-            if(!B.myShieldActive){
-                let botDmg = enemyHero.dmg;
-                if(enemyHero.hasUlt && !B.enemyUltActive){
-                    B.enemyUltHits++;
-                    if(B.enemyUltHits >= 3){ activateDrakoUlt(false); botDmg = enemyHero.ultDmg; }
-                } else if(B.enemyUltActive){
-                    botDmg = enemyHero.ultDmg;
-                }
-                
-                if(enemyHero.hasPoison){
-                    let ticks = 0;
-                    let pTimer = setInterval(() => {
-                        if(!B.active) { clearInterval(pTimer); return; }
-                        ticks++;
-                        B.myHP_bot = Math.max(0, B.myHP_bot - 3);
-                        renderBars(B.myHP_bot, B.myMaxHP, B.enemyHP_bot, B.enemyMaxHP);
-                        if(B.myHP_bot <= 0) endBattle(false);
-                        if(ticks >= 3) clearInterval(pTimer);
-                    }, 1000);
-                }
-
-                B.myHP_bot=Math.max(0,B.myHP_bot-botDmg);
-                renderBars(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP);
-                if(B.myHP_bot<=0) endBattle(false);
-            }
-        },enemyHero.reload);
-    }
-}
-
-function renderBars(myHP,myMax,enHP,enMax){
-    document.getElementById('p-hp-fill').style.width=(Math.max(0,myHP)/myMax*100)+'%';
-    document.getElementById('p-hp-text').innerText=`${Math.max(0,myHP)}/${myMax}`;
-    document.getElementById('e-hp-fill').style.width=(Math.max(0,enHP)/enMax*100)+'%';
-    document.getElementById('e-hp-text').innerText=`${Math.max(0,enHP)}/${enMax}`;
-}
-
-function resetBattleUI(){
-    document.getElementById('atk-btn').classList.remove('on-cd');
-    document.getElementById('atk-cd-overlay').classList.remove('show');
-    document.getElementById('def-btn').classList.remove('shield-active','shield-cd');
-    document.getElementById('def-cd-overlay').classList.remove('show');
-    document.getElementById('my-shield-indicator').classList.remove('show');
-    document.getElementById('enemy-shield-indicator').classList.remove('show');
+function renderBarsCanvas(myHP,myMax,enHP,enMax){
+    document.getElementById('my-hp-fill').style.width=(Math.max(0,myHP)/myMax*100)+'%';
+    document.getElementById('my-hp-text').innerText=`${Math.max(0,myHP)}/${myMax}`;
+    document.getElementById('enemy-hp-fill').style.width=(Math.max(0,enHP)/enMax*100)+'%';
+    document.getElementById('enemy-hp-text').innerText=`${Math.max(0,enHP)}/${enMax}`;
 }
 
 function endBattle(win){
@@ -1125,6 +1462,9 @@ function cleanupAll(){
     B.active=false; B.pvp=false;
 }
 
+// ══════════════════════════════════════════════════════════════
+// АДМИНКА (ОСТАЛОСЬ КАК БЫЛО)
+// ══════════════════════════════════════════════════════════════
 let adminCustomShopItems = [];
 
 function openAdminPanel(){
@@ -1132,85 +1472,29 @@ function openAdminPanel(){
     renderMyHeroesAdmin();
     loadCustomShop();
 }
-
 function closeAdminPanel(){
     document.getElementById('admin-panel').style.display='none';
 }
 
-function setCustomTrophies() {
-    const val = parseInt(document.getElementById('admin-trophy-input').value);
-    if (isNaN(val)) {
-        adminCustomTrophyWin = null;
-        document.getElementById('admin-trophy-status').innerText = 'Сейчас: Стандартно';
-        alert('Установлено стандартное получение кубков!');
-    } else {
-        adminCustomTrophyWin = val;
-        document.getElementById('admin-trophy-status').innerText = 'Сейчас: +' + val + ' за победу';
-        alert('✅ Теперь ТЫ будешь получать +' + val + ' кубков за каждую победу!');
-    }
-}
-
 async function loadAllPlayers(){
-    const list = document.getElementById('admin-players-list');
-    list.innerHTML = '<p style="color:#aaa">Загрузка...</p>';
-    
-    const snap = await db.ref('players').limitToFirst(50).get();
-    if(!snap.exists()){ list.innerHTML='<p style="color:#aaa">Нет игроков</p>'; return; }
-    
+    const snap = await db.ref('players').get();
     let html = '';
-    snap.forEach(child=>{
-        const nick = child.key;
-        const data = child.val();
-        const unlocked = data.unlocked||[];
+    snap.forEach(child => {
+        const p = child.val();
         html += `
-            <div style="background:#2c2c2c; padding:10px; border-radius:8px; margin-bottom:8px; border:2px solid #555;">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                    <div>
-                        <div style="color:#ffc107; font-size:1.1em; font-weight:bold;">${nick}</div>
-                        <div style="color:#aaa; font-size:0.85em;">🏆 ${data.totalTrophies||0} | 💰 ${data.coins||0}</div>
-                        <div style="color:#888; font-size:0.8em;">Бойцы: ${unlocked.join(', ')}</div>
-                    </div>
-                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                        <button onclick="giveHeroToPlayer('${nick}')" style="background:#27ae60; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.85em;">+ Перс</button>
-                        <button onclick="removeHeroFromPlayer('${nick}')" style="background:#e74c3c; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.85em;">- Перс</button>
-                        <button onclick="giveCoinsToPlayer('${nick}')" style="background:#f1c40f; color:#000; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.85em;">+ 💰</button>
-                        <button onclick="removeCoinsFromPlayer('${nick}')" style="background:#e67e22; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.85em;">- 💰</button>
-                    </div>
+            <div style="background:#222; padding:10px; margin:8px 0; border-radius:8px; border:2px solid #444;">
+                <div style="color:#ffc107; font-size:1.1em; font-weight:bold; margin-bottom:6px;">${child.key}</div>
+                <div style="color:#fff; font-size:0.9em;">🏆 ${p.totalTrophies || 0} | 💰 ${p.coins || 0}</div>
+                <div style="margin-top:8px; display:flex; gap:8px;">
+                    <button onclick="addCoinsToPlayer('${child.key}')" style="background:#27ae60; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.85em;">💰 Добавить монет</button>
+                    <button onclick="removeCoinsFromPlayer('${child.key}')" style="background:#e74c3c; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.85em;">💰 Забрать монет</button>
                 </div>
             </div>`;
     });
-    list.innerHTML = html;
+    document.getElementById('admin-players-list').innerHTML = html || '<p style="color:#aaa;">Нет игроков</p>';
 }
 
-async function giveHeroToPlayer(nick){
-    const hero = prompt('Какого персонажа добавить? (shelly/kolt/dino/stu/leon/voron/8bit/mort/drako/kit)');
-    if(!hero) return;
-    const snap = await db.ref('players/'+nick).get();
-    if(!snap.exists()){ alert('Игрок не найден'); return; }
-    const data = snap.val();
-    const unlocked = data.unlocked||[];
-    if(!unlocked.includes(hero)){
-        unlocked.push(hero);
-        await db.ref('players/'+nick+'/unlocked').set(unlocked);
-        alert(`✅ ${hero} добавлен ${nick}!`);
-        loadAllPlayers();
-    } else alert('У игрока уже есть этот персонаж');
-}
-
-async function removeHeroFromPlayer(nick){
-    const hero = prompt('Какого персонажа удалить?');
-    if(!hero) return;
-    const snap = await db.ref('players/'+nick).get();
-    if(!snap.exists()){ alert('Игрок не найден'); return; }
-    const data = snap.val();
-    let unlocked = data.unlocked||[];
-    unlocked = unlocked.filter(h=>h!==hero);
-    await db.ref('players/'+nick+'/unlocked').set(unlocked);
-    alert(`✅ ${hero} удалён у ${nick}!`);
-    loadAllPlayers();
-}
-
-async function giveCoinsToPlayer(nick){
+async function addCoinsToPlayer(nick){
     const amount = parseInt(prompt('Сколько монет добавить?'));
     if(!amount || isNaN(amount)) return;
     const snap = await db.ref('players/'+nick).get();
@@ -1323,22 +1607,11 @@ function renderCustomShop(){
                 <img src="${HEROES[item.heroId].img}" width="60" style="display:block; margin:0 auto 6px;">
                 <div style="color:#fff; font-size:0.9em; margin-bottom:4px;">${item.heroId.toUpperCase()}</div>
                 <div style="color:#f1c40f; font-size:1em; font-weight:bold; margin-bottom:6px;">💰 ${item.price}</div>
-                <button onclick="buyCustomHero('${item.key}', '${item.heroId}', ${item.price})" style="background:#27ae60; color:#fff; border:none; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:0.8em; margin-right:4px;">Купить</button>
+                <button onclick="buyCustomHeroFromShop('${item.key}', '${item.heroId}', ${item.price})" style="background:#27ae60; color:#fff; border:none; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:0.8em; margin-right:4px;">Купить</button>
                 <button onclick="removeFromShop('${item.key}')" style="background:#e74c3c; color:#fff; border:none; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:0.8em;">Удалить</button>
             </div>`;
     });
     container.innerHTML = html;
-}
-
-function buyCustomHero(key, heroId, price){
-    if(stats.coins < price){ alert('Недостаточно монет!'); return; }
-    stats.coins -= price;
-    if(!stats.unlocked.includes(heroId)) stats.unlocked.push(heroId);
-    document.getElementById('coins-ui').innerText = '💰 ' + stats.coins;
-    saveData();
-    updateBrawlersUI();
-    renderMyHeroesAdmin();
-    alert(`✅ Куплен ${heroId.toUpperCase()}!`);
 }
 
 async function removeFromShop(key){
