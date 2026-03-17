@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BenuBs</title>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
+    <style>
+        * { box-sizing:border-box; }
+        body { margin:0; padding:0; overflow:hidden; font-family:'Arial Black',sans-serif; background:#111; color:#fff; user-select:none; touch-action:manipulation; }
+
+        #game-interface { width:100vw; height:100dvh; position:relative; display:none; background:radial-gradient(circle,#2c3e50,#000); }
+        #player-info { position:absolute; top:12px; left:12px; background:rgba(0,0,0,0.85); padding:8px 14px; border-radius:12px; border:2px solid #ffc107; z-index:10; display:flex; flex-direction:column; gap:2px; cursor:pointer; }
+        #nickname-display { font-size:0.95em; color:#fff; }
+        #total-trophies-ui { color:#ffc107; font-size:1.2em; }
+        #coins-ui { color:#f1c40f; font-size:1em; }
+        #main-character-img { position:absolute; top:50%; left:50%; transform:translate(-50%,-52%); width:min(260px,65vw); pointer-events:none; }
+        #play-button { position:absolute; bottom:20px; right:16px; background:#ffc107; color:#000; border:4px solid #fff; padding:18px 36px; border-radius:15px; font-size:clamp(1.2em,5vw,1.8em); cursor:pointer; box-shadow:0 6px 0 #bf9205; z-index:10; font-family:'Arial Black',sans-serif; font-weight:900; }
+        #left-btns { position:absolute; bottom:20px; left:16px; display:flex; flex-direction:column; gap:10px; z-index:10; }
+        .lobby-btn { background:#f44336; color:#fff; border:3px solid #fff; padding:14px 24px; border-radius:10px; font-size:clamp(0.9em,3.5vw,1.1em); cursor:pointer; box-shadow:0 4px 0 #9e2a21; font-family:'Arial Black',sans-serif; font-weight:900; text-align:center; }
+        #shop-btn { background:#9b59b6; box-shadow:0 4px 0 #6c3483; }
+        #streak-ui { position:absolute; top:12px; right:60px; background:rgba(0,0,0,0.7); padding:6px 12px; border-radius:10px; border:2px solid #e67e22; font-size:0.9em; color:#e67e22; z-index:10; display:none; }
+
+        /* ── МАГАЗИН ── */
+        #shop-screen { display:none; position:fixed; inset:0; background:#1a1a1a; z-index:300; padding:16px; text-align:center; overflow-y:auto; }
+        #shop-screen h1 { color:#ffc107; margin-top:10px; }
+        .shop-items { display:flex; justify-content:center; flex-wrap:wrap; gap:16px; margin-top:20px; }
+        .shop-item { width:140px; background:#2c2c2c; border:3px solid #9b59b6; border-radius:16px; padding:14px 10px; cursor:pointer; transition:transform 0.1s; }
+        .shop-item:active { transform:scale(0.96); }
+        .shop-item img { width:90px; height:auto; margin-bottom:6px; }
+        .shop-item .item-name { font-size:0.95em; color:#fff; margin-bottom:4px; }
+        .shop-item .item-price { font-size:1.1em; color:#f1c40f; font-weight:900; }
+
+        /* ── ПОИСК ── */
+        #search-screen { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.93); z-index:400; flex-direction:column; align-items:center; justify-content:center; gap:20px; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+        #search-title { color:#ffc107; font-size:clamp(1.4em,6vw,2em); animation:pulse 1s infinite; text-align:center; }
+
+        /* ── БОЙ ── */
+        #battle-screen { display:none; width:100vw; height:100dvh; background:linear-gradient(180deg,#2c2c2c,#3a3a3a); position:relative; z-index:50; overflow:hidden; }
+        #battle-arena { position:absolute; top:0; left:0; right:0; bottom:150px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 16px 20px; }
+        .fighter { display:flex; flex-direction:column; align-items:center; width:45%; position:relative; }
+        #fighter-enemy { align-items:flex-end; }
+        .player-label { display:none; background:#27ae60; color:#fff; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:7px; border:2px solid #fff; margin-bottom:4px; white-space:nowrap; }
+        .player-label.show { display:block; }
+        .shield-indicator { font-size:1.8em; margin-bottom:2px; opacity:0; transition:opacity 0.2s; }
+        .shield-indicator.show { opacity:1; }
+        .hp-container { width:100%; margin-bottom:8px; }
+        .hp-bar { width:100%; height:20px; background:#444; border:2px solid #fff; border-radius:10px; overflow:hidden; position:relative; }
+        .hp-fill { height:100%; background:#2ecc71; transition:width 0.15s; }
+        .hp-text { position:absolute; width:100%; top:0; left:0; font-size:12px; color:#fff; line-height:20px; text-shadow:1px 1px #000; font-weight:bold; text-align:center; }
+        .fighter-img { width:min(150px,38vw); height:auto; display:block; transition:transform 0.3s; }
+        #e-battle-img { transform:scaleX(-1); }
+        
+        #battle-controls { position:absolute; bottom:0; left:0; right:0; height:140px; display:flex; align-items:center; justify-content:center; gap:clamp(12px,4vw,30px); padding:10px 16px; background:rgba(0,0,0,0.45); }
+        .battle-btn { flex:1; max-width:180px; height:90px; font-size:clamp(1em,4.5vw,1.4em); border-radius:15px; border:4px solid #fff; color:white; cursor:pointer; text-transform:uppercase; font-weight:bold; font-family:'Arial Black',sans-serif; position:relative; }
+        #atk-btn { background:#e67e22; box-shadow:0 6px 0 #a35a1a; }
+        #def-btn { background:#3498db; box-shadow:0 6px 0 #21618c; }
+        .cd-overlay { position:absolute; inset:0; border-radius:11px; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; font-size:1.6em; font-weight:900; color:#fff; pointer-events:none; opacity:0; transition:opacity 0.15s; }
+        .cd-overlay.show { opacity:1; }
+        #def-btn.shield-active { background:#1a5276; border-color:#85c1e9; }
+        #def-btn.shield-cd { background:#555; pointer-events:none; }
+        #atk-btn.on-cd { pointer-events:none; }
+
+        /* Кнопки перемещения для Кита */
+        #kit-controls { display:none; position:absolute; left:16px; top:40%; transform:translateY(-50%); flex-direction:column; gap:10px; z-index:100; }
+        .kit-btn { width:60px; height:60px; font-size:1.8em; background:#f1c40f; border:3px solid #fff; border-radius:12px; cursor:pointer; box-shadow:0 4px 0 #bf9205; display:flex; align-items:center; justify-content:center; }
+
+        /* ── МОДАЛКИ ── */
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:1000; align-items:center; justify-content:center; padding:16px; }
+        .modal-box { background:#ffc107; padding:24px; border-radius:20px; border:5px solid #fff; text-align:center; color:#000; width:100%; max-width:340px; }
+        #leaders-list { text-align:left; max-height:220px; overflow-y:auto; padding-right:6px; margin:10px 0; }
+        #leaders-list::-webkit-scrollbar { width:6px; }
+        #leaders-list::-webkit-scrollbar-thumb { background:#555; border-radius:3px; }
+
+        /* ── БОЙЦЫ ── */
+        #brawlers-menu { display:none; position:fixed; inset:0; background:#1a1a1a; z-index:300; padding:16px; text-align:center; overflow-y:auto; }
+        .brawlers-list { display:flex; justify-content:center; flex-wrap:wrap; gap:12px; margin-top:20px; }
+        .brawler-card { width:100px; background:#3498db; border:3px solid #fff; border-radius:15px; padding:10px; cursor:pointer; }
+        .brawler-card img { width:70px; height:auto; }
+        .locked { filter:brightness(0.3) grayscale(1); cursor:not-allowed; }
+
+        /* Уникальные карточки */
+        #mort-card { background:#4a235a; border-color:#9b59b6; }
+        #kit-card { background:#d4ac0d; border-color:#f1c40f; }
+
+        .btn-red { background:#f44336; color:#fff; border:3px solid #fff; padding:12px 20px; border-radius:10px; cursor:pointer; text-transform:uppercase; font-weight:bold; box-shadow:0 4px 0 #9e2a21; font-family:'Arial Black',sans-serif; }
+        #login-screen { position:fixed; inset:0; background:#111; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; z-index:2000; padding:20px; }
+        #login-screen h1 { color:#ffc107; font-size:clamp(2.5em,12vw,4em); text-shadow:4px 4px #000; margin:0; }
+        #nick-input { padding:14px; font-size:clamp(1.1em,5vw,1.5em); text-align:center; border-radius:12px; border:3px solid #ffc107; width:100%; max-width:300px; background:#222; color:#fff; }
+
+        /* Анимация открытия кейса */
+        @keyframes caseOpen { 0%{transform:scale(0.5) rotate(-10deg);opacity:0} 60%{transform:scale(1.15) rotate(3deg)} 100%{transform:scale(1) rotate(0);opacity:1} }
+        .case-anim { animation:caseOpen 0.5s ease; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <h1>BenuBs</h1>
+    <input type="text" id="nick-input" placeholder="ТВОЙ НИК">
+    <button class="btn-red" id="login-button" style="width:200px;font-size:1.4em;">ИГРАТЬ</button>
+</div>
+
+<div id="game-interface">
+    <div id="player-info" onclick="nickTap()">
+        <div id="nickname-display">ИГРОК</div>
+        <div id="total-trophies-ui">🏆 0</div>
+        <div id="coins-ui">💰 0</div>
+    </div>
+    <div id="streak-ui">🔥 Серия: <span id="streak-count">0</span></div>
+    <div id="menu-toggle" onclick="showLeaders()" style="position:absolute;top:16px;right:16px;width:38px;cursor:pointer;z-index:100;padding:4px;">
+        <div style="height:5px;background:white;margin-bottom:6px;border-radius:3px;"></div>
+        <div style="height:5px;background:white;margin-bottom:6px;border-radius:3px;"></div>
+        <div style="height:5px;background:white;border-radius:3px;"></div>
+    </div>
+    <img id="main-character-img" src="Shellu.png">
+    <div id="left-btns">
+        <button class="lobby-btn" id="shop-btn" onclick="openShop()">🛒 МАГАЗИН</button>
+        <button class="lobby-btn" onclick="openBrawlers()">👊 БОЙЦЫ</button>
+    </div>
+    <button id="play-button">В БОЙ!</button>
+</div>
+
+<div id="shop-screen">
+    <h1>🛒 МАГАЗИН</h1>
+    <div class="shop-items">
+        <div class="shop-item" onclick="buyCase()">
+            <img src="case1.png" alt="Мортис кейс">
+            <div class="item-name">Мортис кейс</div>
+            <div class="item-price">💰 1000</div>
+        </div>
+        <div class="shop-item" onclick="buyDrakoCase()">
+            <img src="case1.png" alt="Драко кейс">
+            <div class="item-name">Драко кейс</div>
+            <div class="item-price">💰 2500</div>
+        </div>
+        <div class="shop-item" onclick="buyKitCase()">
+            <img src="case1.png" alt="Кит кейс">
+            <div class="item-name">Кит кейс</div>
+            <div class="item-price">💰 5000</div>
+        </div>
+        <div id="admin-shop-inject"></div>
+    </div>
+    <button class="btn-red" style="margin-top:30px" onclick="closeShop()">НАЗАД</button>
+</div>
+
+<div id="search-screen">
+    <div id="search-title">ПОИСК ИГРЫ...</div>
+    <div id="search-online" style="color:#aaa;font-size:1.1em;">В поиске: 1</div>
+    <button class="btn-red" onclick="cancelSearch()">ОТМЕНА</button>
+</div>
+
+<div id="battle-screen">
+    <div id="kit-controls">
+        <button class="kit-btn" onclick="moveKit('up')">⬆️</button>
+        <button class="kit-btn" onclick="moveKit('down')">⬇️</button>
+        <button class="kit-btn" onclick="moveKit('reset')">⏺️</button>
+    </div>
+
+    <div id="battle-arena">
+        <div class="fighter" id="fighter-me">
+            <div id="my-shield-indicator" class="shield-indicator">🛡️</div>
+            <div class="hp-container">
+                <div class="hp-bar"><div id="p-hp-fill" class="hp-fill"></div><div id="p-hp-text" class="hp-text">0/0</div></div>
+            </div>
+            <img id="p-battle-img" src="Shellu.png" class="fighter-img">
+        </div>
+        <div class="fighter" id="fighter-enemy">
+            <div id="enemy-player-label" class="player-label"></div>
+            <div id="enemy-shield-indicator" class="shield-indicator">🛡️</div>
+            <div class="hp-container">
+                <div class="hp-bar"><div id="e-hp-fill" class="hp-fill" style="background:#e74c3c"></div><div id="e-hp-text" class="hp-text">0/0</div></div>
+            </div>
+            <img id="e-battle-img" src="Shellu.png" class="fighter-img">
+        </div>
+    </div>
+    <div id="battle-controls">
+        <button id="atk-btn" class="battle-btn">АТАКА<div class="cd-overlay" id="atk-cd-overlay"></div></button>
+        <button id="def-btn" class="battle-btn">ЩИТ<div class="cd-overlay" id="def-cd-overlay"></div></button>
+    </div>
+</div>
+
+<div id="brawlers-menu">
+    <h1 id="brawler-count-header" style="margin-top:10px;">1/10 БОЙЦОВ</h1>
+    <div class="brawlers-list">
+        <div class="brawler-card" id="shelly-card" onclick="selectBrawler('shelly')">
+            <img src="Shellu.png"><div>ШЕЛЛИ</div><div id="s-troph" style="color:#ffc107">🏆 0</div>
+        </div>
+        <div id="kolt-card" class="brawler-card locked" onclick="selectBrawler('kolt')">
+            <img src="Kolt.png"><div>КОЛЬТ</div><div id="k-troph" style="color:#ffc107">🏆 0</div><div style="font-size:10px">🔒 40 🏆</div>
+        </div>
+        <div id="dino-card" class="brawler-card locked" onclick="selectBrawler('dino')">
+            <img src="Dino.png"><div>ДИНО</div><div id="d-troph" style="color:#ffc107">🏆 0</div><div style="font-size:10px">🔒 150 🏆</div>
+        </div>
+        <div id="stu-card" class="brawler-card locked" onclick="selectBrawler('stu')">
+            <img src="stu.png"><div>СТУ</div><div id="st-troph" style="color:#ffc107">🏆 0</div><div style="font-size:10px">🔒 500 🏆</div>
+        </div>
+        <div id="leon-card" class="brawler-card locked" onclick="selectBrawler('leon')">
+            <img src="leon.png"><div style="color:#2ecc71">ЛЕОН</div><div id="l-troph" style="color:#ffc107">🏆 0</div><div style="font-size:10px">🔒 750 🏆</div>
+        </div>
+        <div id="voron-card" class="brawler-card locked" onclick="selectBrawler('voron')">
+            <img src="voron.png"><div style="color:#95a5a6">ВОРОН</div><div id="v-troph" style="color:#ffc107">🏆 0</div><div style="font-size:10px">🔒 1000 🏆</div>
+        </div>
+        <div id="8bit-card" class="brawler-card locked" onclick="selectBrawler('8bit')">
+            <img src="8bit.png"><div style="color:#3498db">8-БИТ</div><div id="8-troph" style="color:#ffc107">🏆 0</div><div style="font-size:10px">🔒 1250 🏆</div>
+        </div>
+        <div id="mort-card" class="brawler-card locked" onclick="selectBrawler('mort')">
+            <img src="mort.png"><div style="color:#ce93d8">МОРТИС</div><div id="mo-troph" style="color:#ffc107">🏆 0</div><div style="font-size:10px;color:#ce93d8">📦 Кейс</div>
+        </div>
+        <div id="drako-card" class="brawler-card locked" onclick="selectBrawler('drako')">
+            <img src="drako.png"><div style="color:#ff6b35">ДРАКО</div><div id="dr-troph" style="color:#ffc107">🏆 0</div><div style="font-size:10px;color:#ff6b35">📦 Драко</div>
+        </div>
+        <div id="kit-card" class="brawler-card locked" onclick="selectBrawler('kit')">
+            <img src="kit.png"><div style="color:#fff">КИТ</div><div id="ki-troph" style="color:#ffc107">🏆 0</div><div style="font-size:10px;color:#fff">📦 Кит Кейс</div>
+        </div>
+    </div>
+    <button class="btn-red" style="margin-top:30px" onclick="closeBrawlers()">НАЗАД</button>
+</div>
+
+<div id="admin-panel" style="display:none; position:fixed; inset:0; background:#0a0a0a; z-index:500; padding:16px; overflow-y:auto;">
+    <div style="max-width:900px; margin:0 auto;">
+        <h1 style="color:#e74c3c; text-align:center; margin-bottom:20px;">👑 АДМИН-ПАНЕЛЬ</h1>
+        
+        <div style="background:#1a1a1a; padding:16px; border-radius:12px; margin-bottom:16px; border:2px solid #e74c3c;">
+            <h2 style="color:#ffc107; margin-top:0;">👥 ИГРОКИ</h2>
+            <button class="btn-red" onclick="loadAllPlayers()" style="margin-bottom:10px;">Загрузить игроков</button>
+            <div id="admin-players-list" style="max-height:300px; overflow-y:auto;"></div>
+        </div>
+        
+        <div style="background:#1a1a1a; padding:16px; border-radius:12px; margin-bottom:16px; border:2px solid #f1c40f;">
+            <h2 style="color:#ffc107; margin-top:0;">💰 МОНЕТЫ</h2>
+            <input type="number" id="admin-coins-input" placeholder="Сумма" style="padding:10px; font-size:1em; border-radius:8px; border:2px solid #f1c40f; background:#222; color:#fff; width:150px; margin-right:10px;">
+            <button class="btn-red" style="background:#27ae60; box-shadow:0 4px 0 #1e7e34;" onclick="addCoinsToSelf()">+ Добавить себе</button>
+            <button class="btn-red" style="background:#e74c3c; box-shadow:0 4px 0 #9e2a21;" onclick="removeCoinsFromSelf()">- Забрать у себя</button>
+        </div>
+        
+        <div style="background:#1a1a1a; padding:16px; border-radius:12px; margin-bottom:16px; border:2px solid #9b59b6;">
+            <h2 style="color:#ffc107; margin-top:0;">👊 МОИ БОЙЦЫ</h2>
+            <div id="admin-my-heroes" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+        </div>
+        
+        <div style="background:#1a1a1a; padding:16px; border-radius:12px; margin-bottom:16px; border:2px solid #3498db;">
+            <h2 style="color:#ffc107; margin-top:0;">🛒 ДОБАВИТЬ В МАГАЗИН</h2>
+            <select id="admin-shop-hero" style="padding:10px; font-size:1em; border-radius:8px; border:2px solid #3498db; background:#222; color:#fff; margin-right:10px;">
+                <option value="shelly">Шелли</option>
+                <option value="kolt">Кольт</option>
+                <option value="dino">Дино</option>
+                <option value="stu">Сту</option>
+                <option value="leon">Леон</option>
+                <option value="voron">Ворон</option>
+                <option value="8bit">8-Бит</option>
+                <option value="mort">Мортис</option>
+                <option value="drako">Драко</option>
+                <option value="kit">Кит</option>
+            </select>
+            <input type="number" id="admin-shop-price" placeholder="Цена" style="padding:10px; font-size:1em; border-radius:8px; border:2px solid #3498db; background:#222; color:#fff; width:120px; margin-right:10px;">
+            <button class="btn-red" style="background:#3498db; box-shadow:0 4px 0 #21618c;" onclick="addHeroToShop()">Добавить</button>
+            <div id="admin-custom-shop" style="margin-top:15px; display:flex; flex-wrap:wrap; gap:10px;"></div>
+        </div>
+        
+        <button class="btn-red" onclick="closeAdminPanel()" style="width:100%; margin-top:20px;">ЗАКРЫТЬ</button>
+    </div>
+</div>
+
+<div id="universal-modal" class="modal-overlay">
+    <div id="modal-content" class="modal-box"></div>
+</div>
+
+<script>
+firebase.initializeApp({ databaseURL:"https://greenbank-cc943-default-rtdb.firebaseio.com/" });
+const db = firebase.database();
+
+const HEROES = {
+    shelly:{ hp:350,  dmg:35,  reload:2000, img:'Shellu.png' },
+    kolt:  { hp:500,  dmg:10,  reload:500,  img:'Kolt.png',  unlock:40 },
+    dino:  { hp:1000, dmg:30,  reload:3500, img:'Dino.png',  unlock:150 },
+    stu:   { hp:660,  dmg:4,   reload:300,  img:'stu.png',   unlock:500 },
+    leon:  { hp:750,  dmg:13,  reload:700,  img:'leon.png',  unlock:750 },
+    voron: { hp:1000, dmg:15,  reload:1000, img:'voron.png', unlock:1000, hasPoison:true },
+    '8bit':{ hp:1500, dmg:5,   reload:1500, img:'8bit.png',  unlock:1250 },
+    mort:  { hp:350,  dmg:2,   reload:1,    img:'mort.png' },
+    drako: { hp:700,  dmg:15,  reload:2000, img:'drako.png', hasUlt:true, ultForm:'drakou.png', ultDmg:35 },
+    kit:   { hp:700,  dmg:35,  reload:2500, img:'kit.png' } // только из кейса за 5000
+};
+const SHIELD_ACTIVE = 3000;
+const SHIELD_CD     = 3000;
+
+let stats = {
+    nick:'', totalTrophies:0, coins:0, currentHero:'shelly',
+    unlocked:['shelly'], winStreak:0,
+    heroes:{ 
+        shelly:{trophies:0}, kolt:{trophies:0}, dino:{trophies:0}, stu:{trophies:0}, 
+        leon:{trophies:0}, voron:{trophies:0}, '8bit':{trophies:0}, 
+        mort:{trophies:0}, drako:{trophies:0}, kit:{trophies:0} 
+    }
+};
+
+let nickTapCount = 0;
+let nickTapTimer = null;
+
+let B = {
+    active:false, pvp:false, myRole:'', matchId:'',
+    myHeroId:'', enemyHeroId:'',
+    myMaxHP:0, enemyMaxHP:0,
+    myHP_bot:0, enemyHP_bot:0,
+    myShieldActive:false, myShieldOnCD:false,
+    shieldTimer:null, shieldCdTimer:null, shieldCdInterval:null,
+    atkOnCD:false, atkCdTimer:null, atkCdInterval:null,
+    botTimer:null, stateListener:null, matchDbRef:null,
+    myUltHits:0, enemyUltHits:0, myUltActive:false, enemyUltActive:false
+};
+
+let myQueueRef=null, searchQueueListener=null, searchMatchListener=null;
+let searchCancelled=false, alreadyMatched=false;
+
+window.addEventListener('load', async ()=>{
+    const saved = localStorage.getItem('benubs_nick');
+    if(saved) await doLogin(saved);
+});
+
+window.addEventListener('keydown', (e)=>{
+    if(e.key === 'F3'){
+        e.preventDefault();
+        if(stats.nick && !stats.unlocked.includes('drako')){
+            stats.unlocked.push('drako');
+            saveData(); 
+            updateBrawlersUI();
+            showUnlockModal('drako');
+        }
+    }
+    if(e.key === 'F2'){
+        e.preventDefault();
+        if(stats.nick) openAdminPanel();
+    }
+});
+
+document.getElementById('login-button').onclick = async ()=>{
+    const nick = document.getElementById('nick-input').value.trim().toUpperCase();
+    if(!nick) return;
+    await doLogin(nick);
+};
+
+async function doLogin(nick){
+    stats.nick = nick;
+    const snap = await db.ref('players/'+nick).get();
+    if(snap.exists()){
+        const d=snap.val();
+        stats.totalTrophies = d.totalTrophies||0;
+        stats.coins         = d.coins||0;
+        stats.unlocked      = d.unlocked||['shelly'];
+        stats.winStreak     = d.winStreak||0;
+        stats.currentHero   = d.currentHero||'shelly';
+        if(d.heroStats) for(let h in d.heroStats) if(stats.heroes[h]) stats.heroes[h].trophies=d.heroStats[h];
+    }
+    localStorage.setItem('benubs_nick', nick);
+
+    let pvpMatchId = localStorage.getItem('benubs_pvp_match');
+    let botAbandon = localStorage.getItem('benubs_bot_battle');
+
+    if (pvpMatchId) {
+        const matchSnap = await db.ref('matches/'+pvpMatchId).get();
+        if(matchSnap.exists()){
+            const m = matchSnap.val();
+            let myRole = (m.player1 === nick) ? 'player1' : 'player2';
+            let enemyNick = (myRole === 'player1') ? m.player2 : m.player1;
+            let enemyHeroId = (myRole === 'player1') ? m.hero2 : m.hero1;
+
+            setupMainUI();
+            document.getElementById('game-interface').style.display='none';
+            enterPvP(pvpMatchId, myRole, enemyNick, enemyHeroId);
+            return;
+        } else {
+            botAbandon = 'true'; 
+            localStorage.removeItem('benubs_pvp_match');
+        }
+    }
+
+    setupMainUI();
+
+    if (botAbandon === 'true') {
+        localStorage.removeItem('benubs_bot_battle');
+        applyAbandonPenalty(pvpMatchId ? "Враг добил тебя, пока ты был оффлайн!" : "Нельзя убегать от боя!");
+    } else {
+        saveData();
+    }
+}
+
+function setupMainUI() {
+    document.getElementById('nickname-display').innerText = stats.nick;
+    document.getElementById('total-trophies-ui').innerText = '🏆 '+stats.totalTrophies;
+    document.getElementById('coins-ui').innerText = '💰 '+stats.coins;
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('game-interface').style.display='block';
+    document.getElementById('main-character-img').src = HEROES[stats.currentHero]?.img||'Shellu.png';
+    updateStreakUI();
+    updateBrawlersUI();
+}
+
+function applyAbandonPenalty(reason) {
+    stats.winStreak = 0;
+    stats.totalTrophies = Math.max(0, stats.totalTrophies - 20);
+    if(stats.heroes[stats.currentHero]) {
+        stats.heroes[stats.currentHero].trophies = Math.max(0, stats.heroes[stats.currentHero].trophies - 20);
+    }
+    saveData();
+    updateStreakUI();
+    document.getElementById('total-trophies-ui').innerText='🏆 '+stats.totalTrophies;
+
+    const c=document.getElementById('modal-content');
+    document.getElementById('universal-modal').style.display='flex';
+    c.innerHTML=`<h1 style="color:#e74c3c">СБЕЖАЛ!</h1>
+        <h2>-20 🏆</h2>
+        <p style="color:#555; font-weight:bold;">${reason}</p>
+        <button class="btn-red" onclick="closeModal()">ОБИДНО</button>`;
+}
+
+function saveData(){
+    if(!stats.nick) return;
+    const hs={};
+    for(let h in stats.heroes) hs[h]=stats.heroes[h]?.trophies||0;
+    db.ref('players/'+stats.nick).set({
+        totalTrophies:stats.totalTrophies, coins:stats.coins,
+        unlocked:stats.unlocked, winStreak:stats.winStreak,
+        currentHero:stats.currentHero, heroStats:hs
+    });
+}
+
+function nickTap(){
+    nickTapCount++;
+    clearTimeout(nickTapTimer);
+    nickTapTimer = setTimeout(()=>{ nickTapCount=0; }, 10000); 
+    
+    if(nickTapCount>=15){
+        nickTapCount=0;
+        if(!stats.unlocked.includes('drako')){
+            stats.unlocked.push('drako');
+            saveData(); updateBrawlersUI();
+            showUnlockModal('drako');
+        }
+    } else if(nickTapCount>=10){
+        nickTapCount=0;
+        if(!stats.unlocked.includes('mort')){
+            stats.unlocked.push('mort');
+            saveData(); updateBrawlersUI();
+            showUnlockModal('mort');
+        }
+    }
+}
+
+function showUnlockModal(id){
+    const c=document.getElementById('modal-content');
+    document.getElementById('universal-modal').style.display='flex';
+    let name = id.toUpperCase();
+    let color = '#fff';
+    if(id==='mort') color='#6c3483';
+    else if(id==='drako') color='#ff6b35';
+    else if(id==='leon') color='#2ecc71';
+    else if(id==='voron') color='#34495e';
+    else if(id==='8bit') color='#3498db';
+    else if(id==='kit') color='#f1c40f';
+
+    c.innerHTML=`<h2 style="color:${color}">✨ НОВЫЙ БОЕЦ!</h2><img src="${HEROES[id].img}" width="90" class="case-anim"><h1 style="color:${color}">${name}</h1><button class="btn-red" onclick="closeModal()">УРА!</button>`;
+}
+
+async function openShop(){
+    document.getElementById('game-interface').style.display='none';
+    document.getElementById('shop-screen').style.display='block';
+    await loadShopItems();
+}
+
+async function loadShopItems(){
+    let html = '';
+    const snap = await db.ref('customShop').get();
+    if(snap.exists()){
+        snap.forEach(child=>{
+            const item = child.val();
+            const key = child.key;
+            html += `
+                <div class="shop-item" onclick="buyCustomHeroFromShop('${key}', '${item.heroId}', ${item.price})">
+                    <img src="${HEROES[item.heroId].img}" alt="${item.heroId}">
+                    <div class="item-name">${item.heroId.toUpperCase()}</div>
+                    <div class="item-price">💰 ${item.price}</div>
+                </div>`;
+        });
+    }
+    document.getElementById('admin-shop-inject').innerHTML = html;
+}
+
+function buyCustomHeroFromShop(key, heroId, price){
+    if(stats.coins < price){
+        const c=document.getElementById('modal-content');
+        document.getElementById('universal-modal').style.display='flex';
+        c.innerHTML=`<h2>😢 Недостаточно монет!</h2><p>Нужно 💰 ${price}<br>У тебя: 💰 ${stats.coins}</p><button class="btn-red" onclick="closeModal()">ОК</button>`;
+        return;
+    }
+    
+    stats.coins -= price;
+    if(!stats.unlocked.includes(heroId)) stats.unlocked.push(heroId);
+    
+    document.getElementById('coins-ui').innerText = '💰 ' + stats.coins;
+    saveData();
+    updateBrawlersUI();
+    
+    const c=document.getElementById('modal-content');
+    document.getElementById('universal-modal').style.display='flex';
+    c.innerHTML=`
+        <h2 style="color:#27ae60">✅ КУПЛЕНО!</h2>
+        <img src="${HEROES[heroId].img}" width="100" class="case-anim" style="margin:10px 0">
+        <h2 style="color:#27ae60">${heroId.toUpperCase()}</h2>
+        <button class="btn-red" onclick="closeModal()">ЗАБРАТЬ!</button>`;
+}
+
+function closeShop(){
+    document.getElementById('shop-screen').style.display='none';
+    document.getElementById('game-interface').style.display='block';
+}
+
+function buyCase(){
+    if(stats.coins < 1000){
+        const c=document.getElementById('modal-content');
+        document.getElementById('universal-modal').style.display='flex';
+        c.innerHTML=`<h2>😢 Недостаточно монет!</h2><p>Нужно 💰 1000<br>У тебя: 💰 ${stats.coins}</p><button class="btn-red" onclick="closeModal()">ОК</button>`;
+        return;
+    }
+    stats.coins -= 1000;
+    document.getElementById('coins-ui').innerText='💰 '+stats.coins;
+    const roll = Math.random();
+    const c=document.getElementById('modal-content');
+    document.getElementById('universal-modal').style.display='flex';
+
+    if(roll < 0.10){
+        if(!stats.unlocked.includes('mort')) stats.unlocked.push('mort');
+        saveData(); updateBrawlersUI();
+        c.innerHTML=`
+            <h2 style="color:#6c3483">📦 МОРТИС КЕЙС</h2>
+            <img src="mort.png" width="100" class="case-anim" style="margin:10px 0">
+            <h2 style="color:#6c3483">✨ МОРТИС!</h2>
+            <p style="color:#555">Невероятная удача!</p>
+            <button class="btn-red" onclick="closeModal()">ЗАБРАТЬ!</button>`;
+    } else {
+        const earned = Math.floor(Math.random()*251) + 100;
+        stats.coins += earned;
+        document.getElementById('coins-ui').innerText='💰 '+stats.coins;
+        saveData();
+        c.innerHTML=`
+            <h2>📦 МОРТИС КЕЙС</h2>
+            <img src="case1.png" width="100" class="case-anim" style="margin:10px 0">
+            <h2 style="color:#e67e22">💰 +${earned} монет!</h2>
+            <button class="btn-red" onclick="closeModal()">ЗАБРАТЬ!</button>`;
+    }
+}
+
+function buyDrakoCase(){
+    if(stats.coins < 2500){
+        const c=document.getElementById('modal-content');
+        document.getElementById('universal-modal').style.display='flex';
+        c.innerHTML=`<h2>😢 Недостаточно монет!</h2><p>Нужно 💰 2500<br>У тебя: 💰 ${stats.coins}</p><button class="btn-red" onclick="closeModal()">ОК</button>`;
+        return;
+    }
+    stats.coins -= 2500;
+    document.getElementById('coins-ui').innerText='💰 '+stats.coins;
+    const roll = Math.random();
+    const c=document.getElementById('modal-content');
+    document.getElementById('universal-modal').style.display='flex';
+
+    if(roll < 0.05){
+        if(!stats.unlocked.includes('drako')) stats.unlocked.push('drako');
+        saveData(); updateBrawlersUI();
+        c.innerHTML=`
+            <h2 style="color:#ff6b35">📦 ДРАКО КЕЙС</h2>
+            <img src="drako.png" width="100" class="case-anim" style="margin:10px 0">
+            <h2 style="color:#ff6b35">🔥 ДРАКО!</h2>
+            <p style="color:#555">Легендарная удача!</p>
+            <button class="btn-red" onclick="closeModal()">ЗАБРАТЬ!</button>`;
+    } else {
+        const earned = Math.floor(Math.random()*251) + 750;
+        stats.coins += earned;
+        document.getElementById('coins-ui').innerText='💰 '+stats.coins;
+        saveData();
+        c.innerHTML=`
+            <h2>📦 ДРАКО КЕЙС</h2>
+            <img src="case1.png" width="100" class="case-anim" style="margin:10px 0">
+            <h2 style="color:#e67e22">💰 +${earned} монет!</h2>
+            <button class="btn-red" onclick="closeModal()">ЗАБРАТЬ!</button>`;
+    }
+}
+
+function buyKitCase(){
+    if(stats.coins < 5000){
+        const c=document.getElementById('modal-content');
+        document.getElementById('universal-modal').style.display='flex';
+        c.innerHTML=`<h2>😢 Недостаточно монет!</h2><p>Нужно 💰 5000<br>У тебя: 💰 ${stats.coins}</p><button class="btn-red" onclick="closeModal()">ОК</button>`;
+        return;
+    }
+    stats.coins -= 5000;
+    document.getElementById('coins-ui').innerText='💰 '+stats.coins;
+    const roll = Math.random();
+    const c=document.getElementById('modal-content');
+    document.getElementById('universal-modal').style.display='flex';
+
+    if(roll < 0.40){
+        if(!stats.unlocked.includes('kit')) stats.unlocked.push('kit');
+        saveData(); updateBrawlersUI();
+        c.innerHTML=`
+            <h2 style="color:#f1c40f">📦 КИТ КЕЙС</h2>
+            <img src="kit.png" width="100" class="case-anim" style="margin:10px 0">
+            <h2 style="color:#f1c40f">🐱 КИТ!</h2>
+            <button class="btn-red" onclick="closeModal()">ЗАБРАТЬ!</button>`;
+    } else {
+        const earned = Math.floor(Math.random() * (2500 - 1000 + 1)) + 1000;
+        stats.coins += earned;
+        document.getElementById('coins-ui').innerText='💰 '+stats.coins;
+        saveData();
+        c.innerHTML=`
+            <h2>📦 КИТ КЕЙС</h2>
+            <img src="case1.png" width="100" class="case-anim" style="margin:10px 0">
+            <h2 style="color:#e67e22">💰 +${earned} монет!</h2>
+            <button class="btn-red" onclick="closeModal()">ЗАБРАТЬ!</button>`;
+    }
+}
+
+async function showLeaders(){
+    document.getElementById('modal-content').innerHTML='<h2>ТОП ИГРОКОВ</h2><p>Загрузка...</p>';
+    document.getElementById('universal-modal').style.display='flex';
+    try{
+        const snap=await db.ref('players').get();
+        const list=[];
+        snap.forEach(c=>{ const v=c.val(); list.push({n:c.key,t:v&&v.totalTrophies?v.totalTrophies:0}); });
+        list.sort((a,b)=>b.t-a.t);
+        const medals=['🥇','🥈','🥉'];
+        const rows=list.length
+            ? list.map((p,i)=>`<p style="margin:6px 0">${medals[i]||(i+1+'.')} <b>${p.n}</b> — ${p.t} 🏆</p>`).join('')
+            : '<p>Пока никого нет!</p>';
+        document.getElementById('modal-content').innerHTML=
+            `<h2>ТОП ИГРОКОВ</h2><div id="leaders-list">${rows}</div>
+             <button class="btn-red" style="margin-top:8px;background:#c0392b" onclick="showDeleteConfirm()">🗑 УДАЛИТЬ АКК</button><br><br>
+             <button class="btn-red" onclick="closeModal()">ЗАКРЫТЬ</button>`;
+    } catch(e){
+        document.getElementById('modal-content').innerHTML=`<h2>Ошибка</h2><button class="btn-red" onclick="closeModal()">ОК</button>`;
+    }
+}
+
+function showDeleteConfirm(){
+    const c=document.getElementById('modal-content');
+    c.innerHTML=`<h2>УДАЛИТЬ АККАУНТ?</h2><p>Это нельзя отменить!</p>
+        <button class="btn-red" onclick="deleteAccount()">ДА</button>
+        <button class="btn-red" onclick="showLeaders()">НЕТ</button>`;
+}
+function deleteAccount(){ db.ref('players/'+stats.nick).remove(); localStorage.removeItem('benubs_nick'); location.reload(); }
+
+function showModal(type,win){
+    const c=document.getElementById('modal-content');
+    document.getElementById('universal-modal').style.display='flex';
+    if(type==='result'){
+        if(win){ stats.winStreak++; } else { stats.winStreak=0; }
+
+        let base = win ? (stats.totalTrophies<30?15:stats.totalTrophies<70?12:8) : -20;
+        let streakBonus = 0;
+        if(win && stats.winStreak>=4) streakBonus=10;
+        else if(win && stats.winStreak>=2) streakBonus=5;
+        let ch = base + streakBonus;
+        stats.totalTrophies = Math.max(0,stats.totalTrophies+ch);
+        stats.heroes[stats.currentHero].trophies = Math.max(0,(stats.heroes[stats.currentHero]?.trophies||0)+ch);
+
+        let coinsEarned=0;
+        if(win){ coinsEarned=Math.floor(Math.random()*173); stats.coins+=coinsEarned; }
+
+        document.getElementById('total-trophies-ui').innerText='🏆 '+stats.totalTrophies;
+        document.getElementById('coins-ui').innerText='💰 '+stats.coins;
+        updateStreakUI();
+
+        ['kolt','dino','stu','leon','voron','8bit'].forEach(id=>{
+            if(stats.totalTrophies>=HEROES[id].unlock&&!stats.unlocked.includes(id)){
+                stats.unlocked.push(id);
+                setTimeout(()=>showUnlockModal(id),600);
+            }
+        });
+        saveData(); updateBrawlersUI();
+
+        let streakTxt='';
+        if(win && stats.winStreak>=4) streakTxt=`<div style="color:#e74c3c;font-size:0.9em">🔥🔥 Серия ${stats.winStreak}! +${streakBonus} бонус</div>`;
+        else if(win && stats.winStreak>=2) streakTxt=`<div style="color:#e67e22;font-size:0.9em">🔥 Серия ${stats.winStreak}! +${streakBonus} бонус</div>`;
+        let coinsTxt = win ? `<div style="color:#27ae60;font-size:0.95em">💰 +${coinsEarned} монет</div>` : '';
+
+        c.innerHTML=`<h1>${win?'ПОБЕДА!':'ПОРАЖЕНИЕ'}</h1>
+            <h2>${ch>0?'+'+ch:ch} 🏆</h2>
+            ${streakTxt}${coinsTxt}
+            <button class="btn-red" onclick="backToMenu()">В МЕНЮ</button>`;
+    }
+}
+
+function closeModal(){ document.getElementById('universal-modal').style.display='none'; }
+function backToMenu(){
+    closeModal(); cleanupAll();
+    document.getElementById('battle-screen').style.display='none';
+    document.getElementById('game-interface').style.display='block';
+}
+
+function updateStreakUI(){
+    const el=document.getElementById('streak-ui');
+    if(stats.winStreak>=2){ el.style.display='block'; document.getElementById('streak-count').innerText=stats.winStreak; }
+    else el.style.display='none';
+}
+
+function updateBrawlersUI(){
+    stats.unlocked.forEach(id=>document.getElementById(id+'-card')?.classList.remove('locked'));
+    document.getElementById('s-troph').innerText='🏆 '+(stats.heroes.shelly?.trophies||0);
+    document.getElementById('k-troph').innerText='🏆 '+(stats.heroes.kolt?.trophies||0);
+    document.getElementById('d-troph').innerText='🏆 '+(stats.heroes.dino?.trophies||0);
+    document.getElementById('st-troph').innerText='🏆 '+(stats.heroes.stu?.trophies||0);
+    document.getElementById('l-troph').innerText='🏆 '+(stats.heroes.leon?.trophies||0);
+    document.getElementById('v-troph').innerText='🏆 '+(stats.heroes.voron?.trophies||0);
+    document.getElementById('8-troph').innerText='🏆 '+(stats.heroes['8bit']?.trophies||0);
+    document.getElementById('mo-troph').innerText='🏆 '+(stats.heroes.mort?.trophies||0);
+    document.getElementById('dr-troph').innerText='🏆 '+(stats.heroes.drako?.trophies||0);
+    document.getElementById('ki-troph').innerText='🏆 '+(stats.heroes.kit?.trophies||0);
+    
+    const count=stats.unlocked.length;
+    document.getElementById('brawler-count-header').innerText=`${count}/10 БОЙЦОВ`;
+}
+function openBrawlers(){ document.getElementById('brawlers-menu').style.display='block'; }
+function closeBrawlers(){ document.getElementById('brawlers-menu').style.display='none'; }
+function selectBrawler(id){
+    if(!stats.unlocked.includes(id)) return;
+    stats.currentHero=id;
+    document.getElementById('main-character-img').src=HEROES[id].img;
+    saveData(); closeBrawlers();
+}
+
+document.getElementById('play-button').onclick=()=>{
+    document.getElementById('game-interface').style.display='none';
+    document.getElementById('search-screen').style.display='flex';
+    searchCancelled=false; alreadyMatched=false;
+    startSearch();
+};
+function cancelSearch(){ searchCancelled=true; cleanupSearch(); document.getElementById('search-screen').style.display='none'; document.getElementById('game-interface').style.display='block'; }
+
+async function startSearch(){
+    myQueueRef=db.ref('queue/'+stats.nick);
+    await myQueueRef.set({nick:stats.nick,hero:stats.currentHero,ts:Date.now()});
+    myQueueRef.onDisconnect().remove();
+
+    searchQueueListener=db.ref('queue').on('value',snap=>{
+        if(searchCancelled||alreadyMatched) return;
+        const others=[];
+        snap.forEach(c=>{ if(c.key!==stats.nick) others.push({nick:c.key,...c.val()}); });
+        document.getElementById('search-online').innerText=`В поиске: ${others.length+1} игрок(а)`;
+        if(others.length<1) return;
+        const opp=others[0];
+        const sorted=[stats.nick,opp.nick].sort();
+        if(sorted[0]!==stats.nick) return;
+        alreadyMatched=true;
+        const mid=sorted[0]+'_'+sorted[1]+'_'+Date.now();
+        const h1=stats.currentHero, h2=opp.hero;
+        db.ref('matches/'+mid).set({
+            player1:stats.nick, hero1:h1, hp1:HEROES[h1].hp, shield1:false,
+            player2:opp.nick,   hero2:h2, hp2:HEROES[h2].hp, shield2:false,
+            ready:true, ts:Date.now()
+        }).then(()=>{
+            db.ref('queue/'+stats.nick).remove();
+            db.ref('queue/'+opp.nick).remove();
+            enterPvP(mid,'player1',opp.nick,h2);
+        });
+    });
+
+    searchMatchListener=db.ref('matches').on('value',snap=>{
+        if(searchCancelled||alreadyMatched) return;
+        snap.forEach(c=>{
+            const m=c.val();
+            if(m.ready&&m.player2===stats.nick){
+                alreadyMatched=true;
+                db.ref('queue/'+stats.nick).remove();
+                enterPvP(c.key,'player2',m.player1,m.hero1);
+            }
+        });
+    });
+
+    setTimeout(()=>{ if(searchCancelled||alreadyMatched) return; alreadyMatched=true; cleanupSearch(); launchBotBattle(); },10000);
+}
+
+function enterPvP(matchId,myRole,enemyNick,enemyHeroId){
+    cleanupSearch();
+    B.pvp=true; B.myRole=myRole; B.matchId=matchId;
+    B.myHeroId=stats.currentHero; B.enemyHeroId=enemyHeroId;
+    B.myMaxHP=HEROES[stats.currentHero].hp;
+    B.enemyMaxHP=HEROES[enemyHeroId]?.hp||350;
+    B.active=true; B.myShieldActive=false; B.myShieldOnCD=false; B.atkOnCD=false;
+    B.myUltHits=0; B.enemyUltHits=0; B.myUltActive=false; B.enemyUltActive=false;
+    
+    localStorage.setItem('benubs_pvp_match', matchId);
+
+    B.matchDbRef=db.ref('matches/'+matchId);
+    B.matchDbRef.onDisconnect().remove();
+
+    document.getElementById('search-screen').style.display='none';
+    document.getElementById('battle-screen').style.display='block';
+    
+    // Сброс перемещения Кита
+    document.getElementById('p-battle-img').style.transform = 'translateY(0)';
+    if(stats.currentHero === 'kit') document.getElementById('kit-controls').style.display = 'flex';
+    else document.getElementById('kit-controls').style.display = 'none';
+
+    document.getElementById('p-battle-img').src=HEROES[stats.currentHero].img;
+    document.getElementById('e-battle-img').src=HEROES[enemyHeroId]?.img||'Shellu.png';
+    const lbl=document.getElementById('enemy-player-label');
+    lbl.innerText='👤 '+enemyNick; lbl.classList.add('show');
+    resetBattleUI();
+
+    B.stateListener=B.matchDbRef.on('value',snap=>{
+        if(!B.active||!snap.exists()) return;
+        const state=snap.val(); if(!state) return;
+        const myHPkey    = myRole==='player1'?'hp1':'hp2';
+        const enemyHPkey = myRole==='player1'?'hp2':'hp1';
+        const enShKey    = myRole==='player1'?'shield2':'shield1';
+        const enemyUltHitsKey = myRole==='player1'?'ultHits2':'ultHits1';
+        const enemyUltActiveKey = myRole==='player1'?'ultActive2':'ultActive1';
+        
+        const myHP    = state[myHPkey]??B.myMaxHP;
+        const enemyHP = state[enemyHPkey]??B.enemyMaxHP;
+        const enShield= state[enShKey]??false;
+        
+        const enemyHero = HEROES[B.enemyHeroId];
+        if(enemyHero?.hasUlt){
+            const enemyUltHits = state[enemyUltHitsKey]||0;
+            const enemyUltActive = state[enemyUltActiveKey]||false;
+            if(enemyUltActive && !B.enemyUltActive) activateDrakoUlt(false);
+            B.enemyUltHits = enemyUltHits;
+        }
+        
+        renderBars(myHP,B.myMaxHP,enemyHP,B.enemyMaxHP);
+        if(enShield) document.getElementById('enemy-shield-indicator').classList.add('show');
+        else document.getElementById('enemy-shield-indicator').classList.remove('show');
+        if(myHP<=0)    { endBattle(false); return; }
+        if(enemyHP<=0) { endBattle(true);  return; }
+    });
+}
+
+// Управление для Кита
+function moveKit(dir) {
+    if(!B.active) return;
+    const img = document.getElementById('p-battle-img');
+    if(dir === 'up') img.style.transform = 'translateY(-200px)';
+    else if(dir === 'down') img.style.transform = 'translateY(150px)';
+    else img.style.transform = 'translateY(0)';
+}
+
+document.getElementById('atk-btn').onclick=function(){
+    if(!B.active||B.atkOnCD||B.myShieldActive) return;
+    const myHero=HEROES[B.myHeroId||stats.currentHero];
+    
+    let actualDmg = myHero.dmg;
+    if(myHero.hasUlt && !B.myUltActive){
+        B.myUltHits++;
+        if(B.myUltHits >= 3){
+            activateDrakoUlt(true);
+            actualDmg = myHero.ultDmg;
+        }
+    } else if(B.myUltActive){
+        actualDmg = myHero.ultDmg;
+    }
+
+    // Механика Ворона (яд)
+    if(myHero.hasPoison) {
+        let ticks = 0;
+        let pTimer = setInterval(() => {
+            if(!B.active) { clearInterval(pTimer); return; }
+            ticks++;
+            if(B.pvp){
+                const enemyHPkey=B.myRole==='player1'?'hp2':'hp1';
+                B.matchDbRef.once('value').then(snap=>{
+                    if(!B.active) return;
+                    const st=snap.val(); if(!st) return;
+                    B.matchDbRef.update({[enemyHPkey]:Math.max(0,(st[enemyHPkey]||0)-3)});
+                });
+            } else {
+                B.enemyHP_bot = Math.max(0, B.enemyHP_bot - 3);
+                renderBars(B.myHP_bot, B.myMaxHP, B.enemyHP_bot, B.enemyMaxHP);
+                if(B.enemyHP_bot <= 0) endBattle(true);
+            }
+            if(ticks >= 3) clearInterval(pTimer);
+        }, 1000);
+    }
+    
+    if(B.pvp){
+        const enemyHPkey=B.myRole==='player1'?'hp2':'hp1';
+        const enemyShKey=B.myRole==='player1'?'shield2':'shield1';
+        const ultHitsKey=B.myRole==='player1'?'ultHits1':'ultHits2';
+        const ultActiveKey=B.myRole==='player1'?'ultActive1':'ultActive2';
+        
+        B.matchDbRef.once('value').then(snap=>{
+            if(!B.active) return;
+            const state=snap.val(); if(!state) return;
+            if(!(state[enemyShKey]||false)){
+                let updates = {[enemyHPkey]:Math.max(0,(state[enemyHPkey]||0)-actualDmg)};
+                if(myHero.hasUlt){
+                    updates[ultHitsKey] = B.myUltHits;
+                    updates[ultActiveKey] = B.myUltActive;
+                }
+                B.matchDbRef.update(updates);
+            }
+        });
+    } else {
+        B.enemyHP_bot=Math.max(0,B.enemyHP_bot-actualDmg);
+        renderBars(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP);
+        if(B.enemyHP_bot<=0){ endBattle(true); return; }
+    }
+    startAtkCooldown(myHero.reload);
+};
+
+function startAtkCooldown(ms){
+    B.atkOnCD=true;
+    const btn=document.getElementById('atk-btn');
+    const ovr=document.getElementById('atk-cd-overlay');
+    btn.classList.add('on-cd'); ovr.classList.add('show');
+    let rem=Math.ceil(ms/1000); ovr.innerText=rem>0?rem:'';
+    B.atkCdInterval=setInterval(()=>{ rem=Math.max(0,rem-1); ovr.innerText=rem>0?rem:''; },1000);
+    B.atkCdTimer=setTimeout(()=>{ B.atkOnCD=false; btn.classList.remove('on-cd'); ovr.classList.remove('show'); clearInterval(B.atkCdInterval); },ms);
+}
+
+document.getElementById('def-btn').onclick=function(){
+    if(!B.active||B.myShieldActive||B.myShieldOnCD) return;
+    activateShield();
+};
+
+function activateShield(){
+    B.myShieldActive=true;
+    const defBtn=document.getElementById('def-btn');
+    const defOvr=document.getElementById('def-cd-overlay');
+    const myInd=document.getElementById('my-shield-indicator');
+    defBtn.classList.add('shield-active'); defBtn.classList.remove('shield-cd');
+    myInd.classList.add('show'); defOvr.classList.add('show');
+    if(B.pvp){ const shKey=B.myRole==='player1'?'shield1':'shield2'; B.matchDbRef.update({[shKey]:true}); }
+
+    let rem=SHIELD_ACTIVE/1000; defOvr.innerText=rem;
+    B.shieldCdInterval=setInterval(()=>{ rem=Math.max(0,rem-1); defOvr.innerText=rem||''; },1000);
+
+    B.shieldTimer=setTimeout(()=>{
+        B.myShieldActive=false;
+        defBtn.classList.remove('shield-active'); defBtn.classList.add('shield-cd');
+        myInd.classList.remove('show'); clearInterval(B.shieldCdInterval);
+        if(B.pvp){ const shKey=B.myRole==='player1'?'shield1':'shield2'; B.matchDbRef.update({[shKey]:false}); }
+        B.myShieldOnCD=true;
+        let cdRem=SHIELD_CD/1000; defOvr.innerText=cdRem;
+        B.shieldCdInterval=setInterval(()=>{ cdRem=Math.max(0,cdRem-1); defOvr.innerText=cdRem||''; },1000);
+        B.shieldCdTimer=setTimeout(()=>{
+            B.myShieldOnCD=false; defBtn.classList.remove('shield-cd');
+            defOvr.classList.remove('show'); clearInterval(B.shieldCdInterval);
+        },SHIELD_CD);
+    },SHIELD_ACTIVE);
+}
+
+function activateDrakoUlt(isMyHero){
+    if(isMyHero){
+        B.myUltActive = true;
+        B.myUltHits = 0;
+        if(B.pvp){ const myHPkey = B.myRole==='player1'?'hp1':'hp2'; B.matchDbRef.update({[myHPkey]: B.myMaxHP}); }
+        else { B.myHP_bot = B.myMaxHP; renderBars(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP); }
+        const myImg = document.getElementById('p-battle-img');
+        myImg.src = 'drakou.png';
+        setTimeout(()=>{
+            B.myUltActive = false;
+            myImg.src = 'drako.png';
+            if(B.pvp){ const ultActiveKey = B.myRole==='player1'?'ultActive1':'ultActive2'; B.matchDbRef.update({[ultActiveKey]: false}); }
+        }, 5000);
+    } else {
+        B.enemyUltActive = true;
+        B.enemyUltHits = 0;
+        if(B.pvp){ const enemyHPkey = B.myRole==='player1'?'hp2':'hp1'; B.matchDbRef.update({[enemyHPkey]: B.enemyMaxHP}); }
+        else { B.enemyHP_bot = B.enemyMaxHP; renderBars(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP); }
+        const enemyImg = document.getElementById('e-battle-img');
+        enemyImg.src = 'drakou.png';
+        setTimeout(()=>{ B.enemyUltActive = false; enemyImg.src = 'drako.png'; }, 5000);
+    }
+}
+
+function launchBotBattle(){
+    const ids=Object.keys(HEROES);
+    const enemyHeroId=ids[Math.floor(Math.random()*ids.length)];
+    const enemyHero=HEROES[enemyHeroId];
+    const myHero=HEROES[stats.currentHero];
+    B.pvp=false; B.myRole=''; B.matchId='';
+    B.myHeroId=stats.currentHero; B.enemyHeroId=enemyHeroId;
+    B.myMaxHP=myHero.hp; B.enemyMaxHP=Math.floor(enemyHero.hp*1.1);
+    B.myHP_bot=B.myMaxHP; B.enemyHP_bot=B.enemyMaxHP;
+    B.active=true; B.myShieldActive=false; B.myShieldOnCD=false; B.atkOnCD=false;
+    B.myUltHits=0; B.enemyUltHits=0; B.myUltActive=false; B.enemyUltActive=false;
+
+    localStorage.setItem('benubs_bot_battle', 'true');
+
+    document.getElementById('search-screen').style.display='none';
+    document.getElementById('battle-screen').style.display='block';
+
+    document.getElementById('p-battle-img').style.transform = 'translateY(0)';
+    if(stats.currentHero === 'kit') document.getElementById('kit-controls').style.display = 'flex';
+    else document.getElementById('kit-controls').style.display = 'none';
+
+    document.getElementById('p-battle-img').src=myHero.img;
+    document.getElementById('e-battle-img').src=enemyHero.img;
+    document.getElementById('enemy-player-label').classList.remove('show');
+    resetBattleUI();
+    renderBars(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP);
+
+    if(enemyHero.reload<=10){
+        let last=Date.now();
+        const loop=()=>{
+            if(!B.active) return;
+            const now=Date.now();
+            if(now-last>=enemyHero.reload){
+                last=now;
+                if(!B.myShieldActive){
+                    B.myHP_bot=Math.max(0,B.myHP_bot-enemyHero.dmg);
+                    renderBars(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP);
+                    if(B.myHP_bot<=0){ endBattle(false); return; }
+                }
+            }
+            requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+    } else {
+        B.botTimer=setInterval(()=>{
+            if(!B.active) return;
+            if(!B.myShieldActive){
+                let botDmg = enemyHero.dmg;
+                if(enemyHero.hasUlt && !B.enemyUltActive){
+                    B.enemyUltHits++;
+                    if(B.enemyUltHits >= 3){ activateDrakoUlt(false); botDmg = enemyHero.ultDmg; }
+                } else if(B.enemyUltActive){
+                    botDmg = enemyHero.ultDmg;
+                }
+                
+                // Если бот играет за Ворона
+                if(enemyHero.hasPoison){
+                    let ticks = 0;
+                    let pTimer = setInterval(() => {
+                        if(!B.active) { clearInterval(pTimer); return; }
+                        ticks++;
+                        B.myHP_bot = Math.max(0, B.myHP_bot - 3);
+                        renderBars(B.myHP_bot, B.myMaxHP, B.enemyHP_bot, B.enemyMaxHP);
+                        if(B.myHP_bot <= 0) endBattle(false);
+                        if(ticks >= 3) clearInterval(pTimer);
+                    }, 1000);
+                }
+
+                B.myHP_bot=Math.max(0,B.myHP_bot-botDmg);
+                renderBars(B.myHP_bot,B.myMaxHP,B.enemyHP_bot,B.enemyMaxHP);
+                if(B.myHP_bot<=0) endBattle(false);
+            }
+        },enemyHero.reload);
+    }
+}
+
+function renderBars(myHP,myMax,enHP,enMax){
+    document.getElementById('p-hp-fill').style.width=(Math.max(0,myHP)/myMax*100)+'%';
+    document.getElementById('p-hp-text').innerText=`${Math.max(0,myHP)}/${myMax}`;
+    document.getElementById('e-hp-fill').style.width=(Math.max(0,enHP)/enMax*100)+'%';
+    document.getElementById('e-hp-text').innerText=`${Math.max(0,enHP)}/${enMax}`;
+}
+
+function resetBattleUI(){
+    document.getElementById('atk-btn').classList.remove('on-cd');
+    document.getElementById('atk-cd-overlay').classList.remove('show');
+    document.getElementById('def-btn').classList.remove('shield-active','shield-cd');
+    document.getElementById('def-cd-overlay').classList.remove('show');
+    document.getElementById('my-shield-indicator').classList.remove('show');
+    document.getElementById('enemy-shield-indicator').classList.remove('show');
+}
+
+function endBattle(win){
+    if(!B.active) return;
+    localStorage.removeItem('benubs_bot_battle');
+    localStorage.removeItem('benubs_pvp_match');
+
+    B.active=false;
+    clearInterval(B.botTimer);
+    clearTimeout(B.shieldTimer); clearTimeout(B.shieldCdTimer); clearInterval(B.shieldCdInterval);
+    clearTimeout(B.atkCdTimer); clearInterval(B.atkCdInterval);
+    if(B.stateListener&&B.matchDbRef){ B.matchDbRef.off('value',B.stateListener); B.stateListener=null; }
+    if(B.matchDbRef){ B.matchDbRef.remove(); B.matchDbRef=null; }
+    showModal('result',win);
+}
+
+function cleanupSearch(){
+    if(searchQueueListener){ db.ref('queue').off('value',searchQueueListener); searchQueueListener=null; }
+    if(searchMatchListener){ db.ref('matches').off('value',searchMatchListener); searchMatchListener=null; }
+    if(myQueueRef){ myQueueRef.remove(); myQueueRef=null; }
+}
+function cleanupAll(){
+    cleanupSearch();
+    clearInterval(B.botTimer);
+    clearTimeout(B.shieldTimer); clearTimeout(B.shieldCdTimer); clearInterval(B.shieldCdInterval);
+    clearTimeout(B.atkCdTimer); clearInterval(B.atkCdInterval);
+    if(B.stateListener&&B.matchDbRef){ B.matchDbRef.off('value',B.stateListener); B.stateListener=null; }
+    if(B.matchDbRef){ B.matchDbRef.remove(); B.matchDbRef=null; }
+    B.active=false; B.pvp=false;
+}
+
+let adminCustomShopItems = [];
+
+function openAdminPanel(){
+    document.getElementById('admin-panel').style.display='block';
+    renderMyHeroesAdmin();
+    loadCustomShop();
+}
+
+function closeAdminPanel(){
+    document.getElementById('admin-panel').style.display='none';
+}
+
+async function loadAllPlayers(){
+    const list = document.getElementById('admin-players-list');
+    list.innerHTML = '<p style="color:#aaa">Загрузка...</p>';
+    
+    const snap = await db.ref('players').limitToFirst(50).get();
+    if(!snap.exists()){ list.innerHTML='<p style="color:#aaa">Нет игроков</p>'; return; }
+    
+    let html = '';
+    snap.forEach(child=>{
+        const nick = child.key;
+        const data = child.val();
+        const unlocked = data.unlocked||[];
+        html += `
+            <div style="background:#2c2c2c; padding:10px; border-radius:8px; margin-bottom:8px; border:2px solid #555;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div>
+                        <div style="color:#ffc107; font-size:1.1em; font-weight:bold;">${nick}</div>
+                        <div style="color:#aaa; font-size:0.85em;">🏆 ${data.totalTrophies||0} | 💰 ${data.coins||0}</div>
+                        <div style="color:#888; font-size:0.8em;">Бойцы: ${unlocked.join(', ')}</div>
+                    </div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button onclick="giveHeroToPlayer('${nick}')" style="background:#27ae60; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.85em;">+ Перс</button>
+                        <button onclick="removeHeroFromPlayer('${nick}')" style="background:#e74c3c; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.85em;">- Перс</button>
+                        <button onclick="giveCoinsToPlayer('${nick}')" style="background:#f1c40f; color:#000; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.85em;">+ 💰</button>
+                        <button onclick="removeCoinsFromPlayer('${nick}')" style="background:#e67e22; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.85em;">- 💰</button>
+                    </div>
+                </div>
+            </div>`;
+    });
+    list.innerHTML = html;
+}
+
+async function giveHeroToPlayer(nick){
+    const hero = prompt('Какого персонажа добавить? (shelly/kolt/dino/stu/leon/voron/8bit/mort/drako/kit)');
+    if(!hero) return;
+    const snap = await db.ref('players/'+nick).get();
+    if(!snap.exists()){ alert('Игрок не найден'); return; }
+    const data = snap.val();
+    const unlocked = data.unlocked||[];
+    if(!unlocked.includes(hero)){
+        unlocked.push(hero);
+        await db.ref('players/'+nick+'/unlocked').set(unlocked);
+        alert(`✅ ${hero} добавлен ${nick}!`);
+        loadAllPlayers();
+    } else alert('У игрока уже есть этот персонаж');
+}
+
+async function removeHeroFromPlayer(nick){
+    const hero = prompt('Какого персонажа удалить?');
+    if(!hero) return;
+    const snap = await db.ref('players/'+nick).get();
+    if(!snap.exists()){ alert('Игрок не найден'); return; }
+    const data = snap.val();
+    let unlocked = data.unlocked||[];
+    unlocked = unlocked.filter(h=>h!==hero);
+    await db.ref('players/'+nick+'/unlocked').set(unlocked);
+    alert(`✅ ${hero} удалён у ${nick}!`);
+    loadAllPlayers();
+}
+
+async function giveCoinsToPlayer(nick){
+    const amount = parseInt(prompt('Сколько монет добавить?'));
+    if(!amount || isNaN(amount)) return;
+    const snap = await db.ref('players/'+nick).get();
+    if(!snap.exists()){ alert('Игрок не найден'); return; }
+    const data = snap.val();
+    const newCoins = (data.coins||0) + amount;
+    await db.ref('players/'+nick+'/coins').set(newCoins);
+    alert(`✅ +${amount} монет для ${nick}!`);
+    loadAllPlayers();
+}
+
+async function removeCoinsFromPlayer(nick){
+    const amount = parseInt(prompt('Сколько монет забрать?'));
+    if(!amount || isNaN(amount)) return;
+    const snap = await db.ref('players/'+nick).get();
+    if(!snap.exists()){ alert('Игрок не найден'); return; }
+    const data = snap.val();
+    const newCoins = Math.max(0, (data.coins||0) - amount);
+    await db.ref('players/'+nick+'/coins').set(newCoins);
+    alert(`✅ -${amount} монет у ${nick}!`);
+    loadAllPlayers();
+}
+
+function addCoinsToSelf(){
+    const amount = parseInt(document.getElementById('admin-coins-input').value);
+    if(!amount || isNaN(amount)) return;
+    stats.coins += amount;
+    document.getElementById('coins-ui').innerText = '💰 ' + stats.coins;
+    saveData();
+    alert(`✅ +${amount} монет!`);
+}
+
+function removeCoinsFromSelf(){
+    const amount = parseInt(document.getElementById('admin-coins-input').value);
+    if(!amount || isNaN(amount)) return;
+    stats.coins = Math.max(0, stats.coins - amount);
+    document.getElementById('coins-ui').innerText = '💰 ' + stats.coins;
+    saveData();
+    alert(`✅ -${amount} монет!`);
+}
+
+function renderMyHeroesAdmin(){
+    const container = document.getElementById('admin-my-heroes');
+    let html = '';
+    for(let heroId in HEROES){
+        const owned = stats.unlocked.includes(heroId);
+        html += `
+            <button onclick="toggleHeroForSelf('${heroId}')" style="
+                background:${owned?'#27ae60':'#e74c3c'}; 
+                color:#fff; border:none; padding:8px 16px; 
+                border-radius:8px; cursor:pointer; font-size:0.9em;
+                font-weight:bold;
+            ">${owned?'✓':'✗'} ${heroId.toUpperCase()}</button>`;
+    }
+    container.innerHTML = html;
+}
+
+function toggleHeroForSelf(heroId){
+    if(stats.unlocked.includes(heroId)){
+        stats.unlocked = stats.unlocked.filter(h=>h!==heroId);
+        if(stats.currentHero === heroId){
+            stats.currentHero = 'shelly';
+            document.getElementById('main-character-img').src = HEROES['shelly'].img;
+        }
+    } else {
+        stats.unlocked.push(heroId);
+    }
+    saveData();
+    updateBrawlersUI();
+    renderMyHeroesAdmin();
+    const brawlersMenu = document.getElementById('brawlers-menu');
+    if(brawlersMenu.style.display === 'block'){
+        closeBrawlers();
+        setTimeout(()=>openBrawlers(), 100);
+    }
+}
+
+async function addHeroToShop(){
+    const heroId = document.getElementById('admin-shop-hero').value;
+    const price = parseInt(document.getElementById('admin-shop-price').value);
+    if(!price || isNaN(price)){ alert('Укажи цену!'); return; }
+    const newItem = {heroId, price};
+    await db.ref('customShop').push(newItem);
+    alert(`✅ ${heroId.toUpperCase()} добавлен в магазин за ${price} монет для ВСЕХ!`);
+    loadCustomShop();
+}
+
+async function loadCustomShop(){
+    const snap = await db.ref('customShop').get();
+    adminCustomShopItems = [];
+    if(snap.exists()){
+        snap.forEach(child=>{
+            adminCustomShopItems.push({
+                key: child.key, ...child.val()
+            });
+        });
+    }
+    renderCustomShop();
+}
+
+function renderCustomShop(){
+    const container = document.getElementById('admin-custom-shop');
+    if(adminCustomShopItems.length === 0){
+        container.innerHTML = '<p style="color:#aaa; font-size:0.9em;">Пусто</p>'; return;
+    }
+    let html = '';
+    adminCustomShopItems.forEach((item)=>{
+        html += `
+            <div style="background:#2c2c2c; padding:10px; border-radius:8px; border:2px solid #3498db; text-align:center;">
+                <img src="${HEROES[item.heroId].img}" width="60" style="display:block; margin:0 auto 6px;">
+                <div style="color:#fff; font-size:0.9em; margin-bottom:4px;">${item.heroId.toUpperCase()}</div>
+                <div style="color:#f1c40f; font-size:1em; font-weight:bold; margin-bottom:6px;">💰 ${item.price}</div>
+                <button onclick="buyCustomHero('${item.key}', '${item.heroId}', ${item.price})" style="background:#27ae60; color:#fff; border:none; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:0.8em; margin-right:4px;">Купить</button>
+                <button onclick="removeFromShop('${item.key}')" style="background:#e74c3c; color:#fff; border:none; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:0.8em;">Удалить</button>
+            </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function buyCustomHero(key, heroId, price){
+    if(stats.coins < price){ alert('Недостаточно монет!'); return; }
+    stats.coins -= price;
+    if(!stats.unlocked.includes(heroId)) stats.unlocked.push(heroId);
+    document.getElementById('coins-ui').innerText = '💰 ' + stats.coins;
+    saveData();
+    updateBrawlersUI();
+    renderMyHeroesAdmin();
+    alert(`✅ Куплен ${heroId.toUpperCase()}!`);
+}
+
+async function removeFromShop(key){
+    await db.ref('customShop/'+key).remove();
+    alert('✅ Удалено из магазина!');
+    loadCustomShop();
+}
+</script>
+</body>
+</html>
